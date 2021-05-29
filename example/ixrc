@@ -8,7 +8,7 @@
 # #{{ section.variable }} and ix will replace it with
 # the value you've defined
 
-# ix looks for this configuration file in $HOME/.ix
+# ix looks for this configuration file in $HOME/.config/ix/ixrc
 # but you can override where it is using the -c flag
 
 
