@@ -98,3 +98,4 @@ executable --color blue # and so on...
 ### TODO
 - Custom variable inclusion symbol (so that you can define multiple options in case `#` doesn't look good before `{{`)
 - More options for the `ix` configuration within each file
+- Prettier terminal output (colors and things)
