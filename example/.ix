@@ -2,6 +2,12 @@
 # The sections can be any name you want
 # Group things in a way that feels natural to you.
 
+# All variables within this file will be usable in 
+# any file that 'ix' will read. To use them inside
+# said file you use the following convention:
+# #{{ section.variable }} and ix will replace it with
+# the value you've defined
+
 [globals]
 # Environment variables won't be expanded here
 dots = $HOME/snowwhite
