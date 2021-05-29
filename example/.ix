@@ -1,0 +1,19 @@
+# Basic .ini file format
+# The sections can be any name you want
+# Group things in a way that feels natural to you.
+
+[globals]
+# Environment variables won't be expanded here
+dots = $HOME/snowwhite
+# .ini rules apply
+palace = ${dots}/palace
+
+
+# You can have any number of sections you want
+[colors]
+red = #fff
+blue = #00f
+
+
+[paths]
+# ... you get it
