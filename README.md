@@ -12,8 +12,8 @@
 - files to be processed must contain `#: ix-config` within the **first 20 lines**.
 - more options can be specified per file after the `#: ix-config`.
 - variables to be processed are defined as follows `#{{ section.variable }}`.
-- default config directory `~/.config/ix/ixrc`.
-- default parse directory `~/dots`.
+- default config directory `~/.config/ix/ixrc` (overwrite with `-c`)
+- default parse directory `~/dots` (overwrite with `-d`)
 
 
 <br><br>
