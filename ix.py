@@ -2,6 +2,7 @@ import os
 import configparser
 import argparse
 import re
+import threading
 
 
 class File:
@@ -188,42 +189,51 @@ def read_config(at):
     return config
 
 
+def process_file(file):
+    regex = re.compile('^{}.+[\s\S]$'.format(file.notation), re.MULTILINE)
+    processed = file.parse(config)
+
+    for line in re.findall(regex, processed):
+        processed = processed.replace(line, '')
+
+    with open(file.get_out(), 'w') as f:
+        f.write(processed)
+        f.close()
+
+    print('Saving: ' + file.get_out())
+
 
 def main():
+    threads = list()
+
     for root, _, files in os.walk(root_path):
         files = find_ix(root, files)
 
-        for file in files: 
-            regex = re.compile('^{}.+|.[\s\S]$'.format(file.notation), re.MULTILINE)
-            processed = file.parse(config)
+        for file in files:
+            thread = threading.Thread(target=process_file, args=(file,))
+            threads.append(thread)
+            thread.start()
 
-            for line in re.findall(regex, processed):
-                processed = processed.replace(line, '')
-
-            with open(file.get_out(), 'w') as f:
-                f.write(processed)
-                f.close()
-
-            print('Saving: ' + file.get_out())
+    for thread in threads:
+        thread.join()
 
 
 
 
-
+# Symbol configurations
 notation = ':' 
 trigger = 'ix-config'
 entries = [ '//', '#', '--', '--[', '/*', '*' ]
-
 data_fields = [ 'out' ]
 sequence = [ '#{{', '}}' ]
 pattern = re.compile(r'#{{(.+?)}}')
 
-# Default path $HOME/dots
+# Directory configurations
 root_path = os.path.expandvars('$HOME/dots')
 config_path = os.path.expandvars('$HOME/.config/ix/ixrc')
-
 config = read_config(config_path)
 
+# Commandline arguments
 parser = argparse.ArgumentParser(description='Find and replace variables in files within a given directory')
 parser.add_argument('-c', '--config', help='The path where the .ix configuration is located. Default $HOME/.config/ix/ixrc')
 parser.add_argument('-d', '--directory', help='The directory to parse. Default $HOME/dots')
@@ -236,4 +246,6 @@ if args.directory:
 if args.config:
     config_path = args.config
 
+
+# Run
 main()
