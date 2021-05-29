@@ -3,10 +3,10 @@
 <p align="center">(eeks) Simple dotfile preprocessor</p>
 
 
-<br><br><br><br>
+<br><br>
 
 
-### Summary (TL;DR)
+## Summary (TL;DR)
 - `ix.py` is all you need
 - config is an `ini` file.
 - files to be processed must contain `#: ix-config` within the **first 20 lines**.
@@ -16,9 +16,9 @@
 - default parse directory `~/dots`.
 
 
-<br><br><br><br>
+<br><br>
 
-
+## The Long Version
 ### Why?
 I've always had a lot of variables defined in several different places. Some in `.profile` because something couldn't read `.zprofile`, some in `.zshrc` that I've completely forgot about but started using everywhere, and so on. Eventually, the bowl of spaghetti gets bigger and bigger. Everything running bash scripts was already a big enough mess. It's hard to keep track of everything. `.Xresources` defines some colors, but some configs can't use variables from `.Xresources` so you gotta redefine those colors in yet another place and it just gets messier and messier.
 
@@ -86,7 +86,15 @@ executable --color blue # and so on...
 ```
 > Notice that it got rid of the `ix` definitions as well.
 
-<br><br><br><br>
+<br><br>
 
 ### Misc
 - `ix` variables can be used within the `ix` definitions as well, not just environment variables
+
+
+<br><br>
+
+
+### TODO
+- Custom variable inclusion symbol (so that you can define multiple options in case `#` doesn't look good before `{{`)
+- More options for the `ix` configuration within each file
