@@ -7,12 +7,10 @@ import threading
 
 
 # Symbol configurations
-notation = ':' 
+notation = ':'
 trigger = 'ix-config'
-entries = [ '//', '#', '--', '--[', '/*', '*' ]
-sequence = [ '{{', '}}' ]
-
-
+entries = ['//', '#', '--', '--[', '/*', '*']
+sequence = ['{{', '}}']
 
 class File:
     def __init__(self, root, name, notation) -> None:
@@ -27,15 +25,13 @@ class File:
         self.fields = {
             'out': self.__set_out,
             'prefix': self.__set_prefix
-        }
-    
+        }    
 
     def get_out(self) -> str:
         if self.out == '':
             return self.path + '.ix'
         
         return self.out
-
 
     def __set_out(self, data):
         expanded = os.path.expandvars(data)
@@ -46,10 +42,8 @@ class File:
 
         self.out = expanded
 
-
     def __set_prefix(self, data):
         self.prefix = data
-
     
     def parse_field(self, field):
         field, data = field.split(':', 1)
@@ -57,14 +51,12 @@ class File:
         parse = self.fields.get(field, lambda: 'No such field: ' + field)
         parse(data.strip())
 
-
     def parse(self):
         file = open(self.path)
         parsed = self.expand_ix_vars(file.read())
 
         file.close()
         return parsed
-
 
     def expand_ix_vars(self, string):
         pattern = re.compile('%s{{(.+?)}}' % self.prefix, re.MULTILINE)
@@ -172,9 +164,7 @@ def find_ix(root):
 
             file.close()
 
-
     return ix_files
-
 
 def read_config(at):
     config = configparser.ConfigParser()
@@ -182,7 +172,6 @@ def read_config(at):
     config.read(at)
 
     return config
-
 
 def process_file(file):
     # Regex to find all comments that have something to do with ix
@@ -199,7 +188,6 @@ def process_file(file):
 
     print('Saving: ' + file.get_out())
 
-
 def main():
     threads = list()
 
@@ -212,8 +200,6 @@ def main():
 
     for thread in threads:
         thread.join()
-
-
 
 # Directory configurations
 root_path = os.path.expandvars('$HOME/dots')
@@ -232,7 +218,6 @@ if args.directory:
 
 if args.config:
     config_path = args.config
-
 
 # Run
 if __name__ == '__main__':
