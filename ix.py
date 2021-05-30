@@ -91,8 +91,6 @@ class File:
         return contents
 
 
-
-
 def find_ix(root):
     '''
     Find all files that contain the 'ix' trigger so we know what 
@@ -176,7 +174,6 @@ def find_ix(root):
 
 
     return ix_files
-
 
 
 def read_config(at):
