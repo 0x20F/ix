@@ -1,6 +1,6 @@
 <h1 align="center">ix</h1>
 
-<p align="center">(eeks) Simple dotfile preprocessor with a per-file configuration</p>
+<p align="center">(eeks) Simple dotfile pre-processor with a per-file configuration</p>
 
 
 <br><br>
@@ -115,4 +115,3 @@ All together now:
 ### TODO
 - More options for the `ix` configuration within each file
 - Prettier terminal output (colors and things)
-- Tests to make sure everything works as expected
