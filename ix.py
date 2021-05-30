@@ -4,13 +4,29 @@ import argparse
 import re
 import threading
 
+os.system('color')
 
 
-# Symbol configurations
-notation = ':'
-trigger = 'ix-config'
-entries = [ '//', '#', '--', '--[', '/*', '*' ]
-sequence = [ '{{', '}}' ]
+# Colors
+RED = "\x1B[31;1m"
+CYAN = "\x1B[36m"
+GREEN = "\x1B[32;1m"
+YELLOW = "\x1B[33;1m"
+RESET = "\x1B[0m"
+WHITE = '\x1B[37;1m'
+
+def info(message):
+    print(CYAN + 'ℹ' + WHITE, message, RESET)
+
+def error(message):
+    print(RED + '✖', message, RESET)
+
+def warn(message):
+    print(YELLOW + '⚠' + WHITE, message, RESET)
+
+def success(message):
+    print(GREEN + '✔' + WHITE, message, RESET)
+
 
 
 class File:
@@ -77,14 +93,15 @@ class File:
 
         for key in items:
             k, v = key.strip().split('.', 1)
+            full_key = '{}{}{}{}'.format(self.prefix, sequence[0], key, sequence[1])
 
             try:
                 resolved = config[k][v]
-                full_key = '{}{}{}{}'.format(self.prefix, sequence[0], key, sequence[1])
-
+                
                 contents = contents.replace(full_key, resolved)
             except:
-                print('Did not find any items with the name {} in the configuration'.format(key))
+                message = 'Did not find any items with the name {} in the configuration.\n\tUsed in file: {}\n'
+                warn(message.format(full_key, self.path))
                 continue
 
         return contents
@@ -110,7 +127,7 @@ def find_ix(root):
         for name in files:
 
             if name.endswith('.ix'):
-                print('Found ix file, skipping...')
+                info('Found ix file, skipping...')
                 continue
 
             full_path = root + '/' + name
@@ -123,10 +140,10 @@ def find_ix(root):
             try:
                 file = open(full_path, 'r')        
             except PermissionError:
-                print('No permission to access file, ignoring: ' + full_path)
+                info('No permission to access file, ignoring: ' + full_path)
                 continue
             except:
-                print('Found non-text file, ignoring: ' + full_path)
+                info('Found non-text file, ignoring: ' + full_path)
                 continue
 
             lines = []
@@ -189,17 +206,28 @@ def process_file(file):
     for line in re.findall(regex, processed):
         processed = processed.replace(line, '')
 
-    with open(file.get_out(), 'w') as f:
-        f.write(processed)
-        f.close()
+    try:
+        with open(file.get_out(), 'w') as f:
+            f.write(processed)
+            f.close()
+    except FileNotFoundError:
+        error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_out(), file.path))
+        return
 
-    print('Saving: ' + file.get_out())
+    success('Saving: ' + file.get_out())
 
 
 def main():
     threads = list()
 
     files = find_ix(root_path)
+
+    if len(files) > 0:
+        info('Found total of {} ix compatible files'.format(len(files)))
+        info('Parsing...\n\n')
+    else:
+        warn('Found no ix compatible files in the given directory: {}'.format(root_path))
+        return
 
     for file in files:
         thread = threading.Thread(target=process_file, args=(file,))
@@ -211,10 +239,15 @@ def main():
 
 
 
+# Symbol configurations
+notation = ':'
+trigger = 'ix-config'
+entries = [ '//', '#', '--', '--[', '/*', '*' ]
+sequence = [ '{{', '}}' ]
+
 # Directory configurations
 root_path = os.path.expandvars('$HOME/dots')
 config_path = os.path.expandvars('$HOME/.config/ix/ixrc')
-config = read_config(config_path)
 
 # Commandline arguments
 parser = argparse.ArgumentParser(description='Find and replace variables in files within a given directory')
@@ -229,6 +262,8 @@ if args.directory:
 if args.config:
     config_path = args.config
 
+# Load in the config
+config = read_config(config_path)
 
 
 # Run
