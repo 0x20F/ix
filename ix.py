@@ -9,8 +9,9 @@ import threading
 # Symbol configurations
 notation = ':'
 trigger = 'ix-config'
-entries = ['//', '#', '--', '--[', '/*', '*']
-sequence = ['{{', '}}']
+entries = [ '//', '#', '--', '--[', '/*', '*' ]
+sequence = [ '{{', '}}' ]
+
 
 class File:
     def __init__(self, root, name, notation) -> None:
@@ -27,11 +28,13 @@ class File:
             'prefix': self.__set_prefix
         }    
 
+
     def get_out(self) -> str:
         if self.out == '':
             return self.path + '.ix'
         
         return self.out
+
 
     def __set_out(self, data):
         expanded = os.path.expandvars(data)
@@ -42,14 +45,17 @@ class File:
 
         self.out = expanded
 
+
     def __set_prefix(self, data):
         self.prefix = data
-    
+
+
     def parse_field(self, field):
         field, data = field.split(':', 1)
 
         parse = self.fields.get(field, lambda: 'No such field: ' + field)
         parse(data.strip())
+
 
     def parse(self):
         file = open(self.path)
@@ -57,6 +63,7 @@ class File:
 
         file.close()
         return parsed
+
 
     def expand_ix_vars(self, string):
         pattern = re.compile('%s{{(.+?)}}' % self.prefix, re.MULTILINE)
@@ -101,7 +108,7 @@ def find_ix(root):
     for root, _, files in os.walk(root_path):
 
         for name in files:
-        
+
             if name.endswith('.ix'):
                 print('Found ix file, skipping...')
                 continue
@@ -122,7 +129,6 @@ def find_ix(root):
                 print('Found non-text file, ignoring: ' + full_path)
                 continue
 
-            
             lines = []
 
             # Try and read all the lines from the file
@@ -131,8 +137,7 @@ def find_ix(root):
                 lines = list(file)
             except:
                 #print('Couldnt parse all characters in file: ' + full_path)
-                continue
-            
+                continue            
             
             # Check the first few lines of the file for the
             # trigger otherwise assume this file is not to be 
@@ -166,12 +171,14 @@ def find_ix(root):
 
     return ix_files
 
+
 def read_config(at):
     config = configparser.ConfigParser()
     config._interpolation = configparser.ExtendedInterpolation()
     config.read(at)
 
     return config
+
 
 def process_file(file):
     # Regex to find all comments that have something to do with ix
@@ -188,6 +195,7 @@ def process_file(file):
 
     print('Saving: ' + file.get_out())
 
+
 def main():
     threads = list()
 
@@ -200,6 +208,8 @@ def main():
 
     for thread in threads:
         thread.join()
+
+
 
 # Directory configurations
 root_path = os.path.expandvars('$HOME/dots')
@@ -218,6 +228,8 @@ if args.directory:
 
 if args.config:
     config_path = args.config
+
+
 
 # Run
 if __name__ == '__main__':

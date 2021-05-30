@@ -18,11 +18,9 @@ class TestIxParsing(unittest.TestCase):
         files = ix.find_ix(test_directory)
         self.assertEqual(len(files), 1)
 
-    
     def test_read_config(self):
         config = ix.read_config(test_config)
         self.assertTrue(config['random_test_section'] is not None)
-
 
     def test_file_processing_prefix(self):
         files = ix.find_ix(test_directory)
@@ -30,7 +28,6 @@ class TestIxParsing(unittest.TestCase):
 
         # Make sure it loaded the custom prefix
         self.assertEqual(file.prefix, '@')
-
 
     def test_file_processing_output_path(self):
         files = ix.find_ix(test_directory)
@@ -43,7 +40,6 @@ class TestIxParsing(unittest.TestCase):
         # and didn't leave any traces
         self.assertTrue('$HOME' not in file.out)
         self.assertFalse(any(x in file.out for x in ['@{{', '}}', '@']))
-
 
     def test_file_variable_expansion(self):
         files = ix.find_ix(test_directory)
@@ -61,9 +57,5 @@ class TestIxParsing(unittest.TestCase):
         # Check that there are no more variables within the file
         self.assertTrue(parsed.count('@{{') == 0)
 
-
-
-
 if __name__ == '__main__':
     unittest.main()
-    
