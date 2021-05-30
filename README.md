@@ -98,3 +98,4 @@ executable --color blue # and so on...
 ### TODO
 - More options for the `ix` configuration within each file
 - Prettier terminal output (colors and things)
+- Tests to make sure everything works as expected
