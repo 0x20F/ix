@@ -1,6 +1,6 @@
 <h1 align="center">ix</h1>
 
-<p align="center">(eeks) Simple dotfile preprocessor</p>
+<p align="center">(eeks) Simple dotfile preprocessor with a per-file configuration</p>
 
 
 <br><br>
@@ -96,6 +96,5 @@ executable --color blue # and so on...
 
 
 ### TODO
-- Custom variable inclusion symbol (so that you can define multiple options in case `#` doesn't look good before `{{`)
 - More options for the `ix` configuration within each file
 - Prettier terminal output (colors and things)
