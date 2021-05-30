@@ -94,7 +94,7 @@ executable --color blue # and so on...
 
 <br><br>
 
-### Documentation
+## Documentation
 All available options for telling `ix` how to handle a specific file
 
 <br>
@@ -106,6 +106,8 @@ All available options for telling `ix` how to handle a specific file
 
 #### `prefix`
 Custom symbol for the variable inclusion syntax.
+
+> Note: This field (if used) needs to be the first thing in the configuration (after the declaration)
 
 The default is `#` so variables are included like so `#{{ variable.name }}`
 
@@ -123,8 +125,6 @@ echo ¤{{ magical.variable }}
 The output directory for the file.
 
 If not specified, the file will be added to the same directory as the original one, but with an `.ix` extension so it doesn't overwrite the original one.
-
-> Note: The path itself can contain `ix` variables, as well as environment variables, however, if the prefix is changed, it needs to be done as the first thing in the configuration (after the declaration).
 
 <br>
 
