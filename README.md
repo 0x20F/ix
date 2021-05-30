@@ -92,7 +92,7 @@ executable --color blue # and so on...
 
 ### Documentation
 All available options for telling `ix` how to handle a specific file
-- `ix-config`: Declaration to make the file something that ix will process
+- `ix-config`: Declaration to make the file something that ix will process. Must show up within the first 20 lines of the file.
 - `prefix: <any symbol(s) you want>`: Custom symbol for the variables that will be processed in this file. Default is `#` so variables are included using `#{{ ... }}`.
 - `out: /path/for/saving`: Where to output the processed file. Default is the current directory with an extra `.ix` extension. The path can, in itself contain other ix variables, as well as environment variables. **Note** that if you define a custom prefix, that prefix will need to be defined before it's used within the ix configuration.
 
