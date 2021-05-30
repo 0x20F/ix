@@ -5,15 +5,29 @@ import re
 import threading
 
 
+
+# Symbol configurations
+notation = ':' 
+trigger = 'ix-config'
+entries = [ '//', '#', '--', '--[', '/*', '*' ]
+data_fields = [ 'out', 'prefix' ]
+sequence = [ '{{', '}}' ]
+
+
+
 class File:
     def __init__(self, root, name, notation) -> None:
         self.path = root + '/' + name
         self.name = name
         self.root = root
         self.notation = notation
+        
         self.out = ''
+        self.prefix = '#'
+        
         self.fields = {
-            'out': self.__set_out
+            'out': self.__set_out,
+            'prefix': self.__set_prefix
         }
     
 
@@ -26,12 +40,16 @@ class File:
 
     def __set_out(self, data):
         expanded = os.path.expandvars(data)
-        expanded = expand_ix_vars(expanded)
+        expanded = self.expand_ix_vars(expanded)
 
         if os.path.isdir(expanded):
             expanded += '/' + self.name
 
         self.out = expanded
+
+
+    def __set_prefix(self, data):
+        self.prefix = data
 
     
     def parse_field(self, field):
@@ -41,37 +59,34 @@ class File:
         parse(data.strip())
 
 
-    def parse(self, config):
+    def parse(self):
         file = open(self.path)
-        lines = list(file)
+        return self.expand_ix_vars(file.read())
 
-        to_replace = set()
 
-        # Find all the keys that need replacing
-        for line in lines:
-            items = re.findall(pattern, line)
+    def expand_ix_vars(self, string):
+        pattern = re.compile('%s{{(.+?)}}' % self.prefix, re.MULTILINE)
+        items = re.findall(pattern, string)
+        items = set(items)
 
-            if len(items) == 0:
-                continue
+        if len(items) == 0:
+            return string
 
-            [ to_replace.add(item) for item in items ]
+        contents = string
 
-        file_contents = ''.join(lines)
-
-        # Replace all the available variables
-        for key in to_replace:
+        for key in items:
             k, v = key.strip().split('.', 1)
 
             try:
                 resolved = config[k][v]
                 full_key = '{}{}{}'.format(sequence[0], key, sequence[1])
 
-                file_contents = file_contents.replace(full_key, resolved)
+                contents = contents.replace(full_key, resolved)
             except:
                 print('Did not find any items with the name {} in the configuration'.format(key))
                 continue
 
-        return file_contents
+        return contents
 
 
 
@@ -157,30 +172,6 @@ def find_ix(root, files):
 
 
 
-def expand_ix_vars(string):
-    items = re.findall(pattern, string)
-
-    if len(items) == 0:
-        return string
-
-    contents = string
-
-    for key in items:
-        k, v = key.strip().split('.', 1)
-
-        try:
-            resolved = config[k][v]
-            full_key = '{}{}{}'.format(sequence[0], key, sequence[1])
-
-            contents = contents.replace(full_key, resolved)
-        except:
-            print('Did not find any items with the name {} in the configuration'.format(key))
-            continue
-
-    return contents
-
-
-
 def read_config(at):
     config = configparser.ConfigParser()
     config._interpolation = configparser.ExtendedInterpolation()
@@ -190,8 +181,10 @@ def read_config(at):
 
 
 def process_file(file):
+    # Regex to find all comments that have something to do with ix
+    # so we can remove them in the processed file
     regex = re.compile('^{}.+[\s\S]$'.format(file.notation), re.MULTILINE)
-    processed = file.parse(config)
+    processed = file.parse()
 
     for line in re.findall(regex, processed):
         processed = processed.replace(line, '')
@@ -218,15 +211,6 @@ def main():
         thread.join()
 
 
-
-
-# Symbol configurations
-notation = ':' 
-trigger = 'ix-config'
-entries = [ '//', '#', '--', '--[', '/*', '*' ]
-data_fields = [ 'out' ]
-sequence = [ '#{{', '}}' ]
-pattern = re.compile(r'#{{(.+?)}}')
 
 # Directory configurations
 root_path = os.path.expandvars('$HOME/dots')
