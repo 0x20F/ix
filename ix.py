@@ -4,7 +4,9 @@ import argparse
 import re
 import threading
 
-os.system('color')
+# Windows handles colors weirdly by default
+if os.name == 'nt':
+    os.system('color')
 
 
 # Colors
