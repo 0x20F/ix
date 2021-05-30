@@ -114,4 +114,3 @@ All together now:
 
 ### TODO
 - More options for the `ix` configuration within each file
-- Prettier terminal output (colors and things)
