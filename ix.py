@@ -56,18 +56,16 @@ class File:
         expanded = os.path.expandvars(data)
         expanded = self.expand_ix_vars(expanded)
 
-        if os.path.isfile(expanded):
-            # if it's a file, we save as that file
-            pass
-        elif os.path.isdir(expanded):
+        if not os.path.isfile(expanded):
+            if not os.path.isdir(expanded):
+                # If it's not a file, and not a directory, then it doesn't exist
+                # so we create a directory and assume we want the file to be stored in
+                # that directory under the same name
+                info('{} does not exist, creating it for the following file: {}'.format(expanded, self.name))
+                os.makedirs(expanded)
+
             # If it's a directory, we add the file to that directory
             expanded += '/' + self.name
-        else:
-            # If it's not a file, and not a directory, then it doesn't exist
-            # so we create a directory and assume we want the file to be stored in
-            # that directory under the same name
-            info('{} does not exist, creating it for the following file: {}'.format(expanded, self.name))
-            os.makedirs(expanded)
 
         self.out = expanded
 
