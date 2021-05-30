@@ -43,7 +43,7 @@ There's a total of **2** pieces to the puzzle:
 
 > When you run the script, it'll assume everything you want to parse is in `~/dots`, which is probably wrong so you'll want to overwrite that. You can do that with the `-d` flag and specifying a new path. 
 
-`ix` will recursively read through the given directory and fine any files that contain the `ix` declaration (which looks like this `#: ix-config`). Basically a comment followed by a colon. This `//:` works too, and this `/*`, even this `--:`. If it doesn't work, then it can be added.
+`ix` will recursively read through the given directory and find any files that contain the `ix` declaration (which looks like this `#: ix-config`). Basically a comment followed by a colon. This `//:` works too, and this `/*:`, even this `--:`. If it doesn't work, then it can be added.
 > Note that the definition needs to be within the **first 20 lines** of the file otherwise `ix` will ignore that file.
 
 The lines after the definition can contain more information about how `ix` should handle this specific file. These are the simple addons I mentioned earlier. For example:
