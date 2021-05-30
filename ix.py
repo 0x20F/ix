@@ -3,6 +3,7 @@ import configparser
 import argparse
 import re
 import threading
+import pathlib
 
 os.system('color')
 
@@ -56,8 +57,13 @@ class File:
         expanded = os.path.expandvars(data)
         expanded = self.expand_ix_vars(expanded)
 
-        if os.path.isdir(expanded):
-            expanded += '/' + self.name
+        # If the given directory doesn't exist
+        # create it.
+        if not os.path.isdir(expanded):
+            info('{} does not exist, creating it for the following file: {}'.format(expanded, self.name))
+            pathlib.Path(expanded).mkdir(parents=True, exist_ok=True)
+        
+        expanded += '/' + self.name
 
         self.out = expanded
 
