@@ -49,6 +49,8 @@ The lines after the definition can contain more information about how `ix` shoul
 
 ...
 ```
+##### Check the full list of available options in the [documentation section](#documentation)
+
 The above example defines where the processed file should be stored. If this is not specified, it'll be stored in the same directory as the original file, under the same name, but with a `.ix` extension added so it doesn't overwrite the original file. Notice that the information related to `ix` is directly after the definition (no empty lines) and start with the same characters as the definition (`#:` in this case).
 
 So that tells `ix` how to handle this specific file and do other magical things with it. The next thing we might want to do is tell it to add some custom variables lower down in the file.
@@ -85,6 +87,21 @@ executable --color blue # and so on...
 #...
 ```
 > Notice that it got rid of the `ix` definitions as well.
+
+<br><br>
+
+### Documentation
+All available options for telling `ix` how to handle a specific file
+- `ix-config`: Declaration to make the file something that ix will process
+- `prefix: <any symbol(s) you want>`: Custom symbol for the variables that will be processed in this file. Default is `#` so variables are included using `#{{ ... }}`.
+- `out: /path/for/saving`: Where to output the processed file. Default is the current directory with an extra `.ix` extension. The path can, in itself contain other ix variables, as well as environment variables. **Note** that if you define a custom prefix, that prefix will need to be defined before it's used within the ix configuration.
+
+All together now:
+```bash
+#: ix-config
+#: prefix: ¤
+#: out: $HOME/¤{{ user.images }}/profile.png
+```
 
 <br><br>
 
