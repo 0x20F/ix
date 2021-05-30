@@ -10,7 +10,6 @@ import threading
 notation = ':' 
 trigger = 'ix-config'
 entries = [ '//', '#', '--', '--[', '/*', '*' ]
-data_fields = [ 'out', 'prefix' ]
 sequence = [ '{{', '}}' ]
 
 
@@ -61,7 +60,10 @@ class File:
 
     def parse(self):
         file = open(self.path)
-        return self.expand_ix_vars(file.read())
+        parsed = self.expand_ix_vars(file.read())
+
+        file.close()
+        return parsed
 
 
     def expand_ix_vars(self, string):
@@ -79,7 +81,7 @@ class File:
 
             try:
                 resolved = config[k][v]
-                full_key = '{}{}{}'.format(sequence[0], key, sequence[1])
+                full_key = '{}{}{}{}'.format(self.prefix, sequence[0], key, sequence[1])
 
                 contents = contents.replace(full_key, resolved)
             except:
@@ -91,7 +93,7 @@ class File:
 
 
 
-def find_ix(root, files):
+def find_ix(root):
     '''
     Find all files that contain the 'ix' trigger so we know what 
     needs parsing.
@@ -106,66 +108,71 @@ def find_ix(root, files):
 
     ix_files = []
 
-    for name in files:
-        if name.endswith('.ix'):
-            print('Found ix file, skipping...')
-            continue
+    for root, _, files in os.walk(root_path):
 
-        full_path = root + '/' + name
-        file = None
-        current = None
-        found = False
-
-        # Try and open the file as a normal text file
-        # Abort if it's binary or something else
-        try:
-            file = open(full_path, 'r')        
-        except PermissionError:
-            print('No permission to access file, ignoring: ' + full_path)
-            continue
-        except:
-            print('Found non-text file, ignoring: ' + full_path)
-            continue
-
+        for name in files:
         
-        lines = []
+            if name.endswith('.ix'):
+                print('Found ix file, skipping...')
+                continue
 
-        # Try and read all the lines from the file
-        # Abort if characters can't be parsed
-        try:
-            lines = list(file)
-        except:
-            #print('Couldnt parse all characters in file: ' + full_path)
-            continue
-        
-        
-        # Check the first few lines of the file for the
-        # trigger otherwise assume this file is not to be 
-        # processed.
-        for i, line in enumerate(lines):
-            for entry in entries:
-                start = "{}{}".format(entry, notation)
-                
-                if line.startswith(start):
-                    if trigger in line:
-                        found = True
-                        current = File(root, name, start)
-                        continue
+            full_path = root + '/' + name
+            file = None
+            current = None
+            found = False
 
-                    if not found:
-                        continue
+            # Try and open the file as a normal text file
+            # Abort if it's binary or something else
+            try:
+                file = open(full_path, 'r')        
+            except PermissionError:
+                print('No permission to access file, ignoring: ' + full_path)
+                continue
+            except:
+                print('Found non-text file, ignoring: ' + full_path)
+                continue
 
-                    clean = line.replace(start, '').strip()
+            
+            lines = []
 
-                    if clean.startswith(tuple(data_fields)):
-                        current.parse_field(clean)
-                        continue
+            # Try and read all the lines from the file
+            # Abort if characters can't be parsed
+            try:
+                lines = list(file)
+            except:
+                #print('Couldnt parse all characters in file: ' + full_path)
+                continue
+            
+            
+            # Check the first few lines of the file for the
+            # trigger otherwise assume this file is not to be 
+            # processed.
+            for i, line in enumerate(lines):
+                for entry in entries:
+                    start = "{}{}".format(entry, notation)
+                    
+                    if line.startswith(start):
+                        if trigger in line:
+                            found = True
+                            current = File(root, name, start)
+                            continue
 
-            if i == 20 and not found:
-                break
-        
-        if found:
-            ix_files.append(current)
+                        if not found:
+                            continue
+
+                        clean = line.replace(start, '').strip()
+
+                        if clean.startswith(tuple(current.fields)):
+                            current.parse_field(clean)
+                            continue
+
+                if i == 20 and not found:
+                    break
+            
+            if found:
+                ix_files.append(current)
+
+            file.close()
 
 
     return ix_files
@@ -199,13 +206,12 @@ def process_file(file):
 def main():
     threads = list()
 
-    for root, _, files in os.walk(root_path):
-        files = find_ix(root, files)
+    files = find_ix(root_path)
 
-        for file in files:
-            thread = threading.Thread(target=process_file, args=(file,))
-            threads.append(thread)
-            thread.start()
+    for file in files:
+        thread = threading.Thread(target=process_file, args=(file,))
+        threads.append(thread)
+        thread.start()
 
     for thread in threads:
         thread.join()

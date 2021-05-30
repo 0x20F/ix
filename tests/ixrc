@@ -1,0 +1,11 @@
+# Test config
+
+
+[random_test_section]
+thing1 = 1
+thing2 = 2
+thing3 = 3
+
+
+[paths]
+users = snowwhite
