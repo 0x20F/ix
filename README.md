@@ -121,7 +121,7 @@ echo ¤{{ magical.variable }}
 
 <br>
 
-#### `to`
+#### `to` | `out`
 The output directory for the file.
 > If the directory does not exist, it will be created before saving the file.
 
@@ -133,7 +133,7 @@ If not specified, the file will be added to the same directory as the original o
 
 <br>
 
-#### `as`
+#### `as` | `name`
 The name of the processed file.
 This is what the processed file will be saved as.
 

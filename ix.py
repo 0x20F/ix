@@ -47,7 +47,11 @@ class File:
         
         self.fields = {
             'to': self.__set_to,
+            'out': self.__set_to,
+
             'as': self.__set_as,
+            'name': self.__set_as,
+            
             'prefix': self.__set_prefix
         }    
 
