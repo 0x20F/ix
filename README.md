@@ -145,6 +145,19 @@ If not specified, the file will be saved under the same name.
 
 <br>
 
+#### `access`
+Custom permissions to be set on the created file.
+
+They will be set using python's `chmod` implementation so all numeric values will work. You can't do `+x` and the likes though, you'll have to do a numeric value.
+```bash
+#: ix-config
+#: access: 777
+
+echo "This file is executable"
+```
+
+<br>
+
 #### All together now:
 ```bash
 #: ix-config
