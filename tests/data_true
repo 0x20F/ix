@@ -3,7 +3,8 @@ it should find it.
 
 #: ix-config
 #: prefix: @
-#: out: $HOME/@{{ paths.users }}/one
+#: to: $HOME/@{{ paths.users }}/one
+#: as: testName
 
 
 Here's some text that uses variables:

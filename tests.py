@@ -34,12 +34,28 @@ class TestIxParsing(unittest.TestCase):
         file = files[0] # The only one
 
         # Make sure it found the right output path
-        self.assertTrue(file.out != '')
+        self.assertTrue(file.get_output_path() != '')
 
         # Make sure it expanded the variables correctly
         # and didn't leave any traces
-        self.assertTrue('$HOME' not in file.out)
-        self.assertFalse(any(x in file.out for x in ['@{{', '}}', '@']))
+        self.assertTrue('$HOME' not in file.get_output_path())
+        self.assertFalse(any(x in file.get_output_path() for x in ['@{{', '}}', '@']))
+
+    def test_file_processing_output_filename(self):
+        files = ix.find_ix(test_directory)
+        file = files[0]
+
+        name = file.name
+        test_name = 'testName'
+
+        # Check that it picked up the newly defined name
+        # and replaced the old name with it
+        self.assertEqual(name, test_name)
+
+        # Make sure that the full output path is updated
+        # with the new name as well
+        
+
 
     def test_file_variable_expansion(self):
         files = ix.find_ix(test_directory)
