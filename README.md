@@ -49,7 +49,7 @@ There's a total of **2** pieces to the puzzle:
 The lines after the definition can contain more information about how `ix` should handle this specific file. These are the simple addons I mentioned earlier. For example:
 ```bash
 #: ix-config
-#: out: /etc/whatever/
+#: to: /etc/whatever/
 
 ...
 ```
@@ -73,7 +73,7 @@ We might then have a bash script that executes something and we want those color
 
 
 #: ix-config
-#: out: $HOME/.config/executable/executablerc
+#: to: $HOME/.config/executable/executablerc
 
 # ...
 
@@ -121,10 +121,18 @@ echo ¤{{ magical.variable }}
 
 <br>
 
-#### `out`
+#### `to`
 The output directory for the file.
 
-If not specified, the file will be added to the same directory as the original one, but with an `.ix` extension so it doesn't overwrite the original one.
+If not specified, the file will be added to the same directory as the original one, but with an `.ix` extension so it doesn't overwrite the original one (unlesss specified otherwise with the `as` key).
+
+<br>
+
+#### `as`
+The name of the processed file.
+This is what the processed file will be saved as.
+
+If not specified, the file will be saved under the same name.
 
 <br>
 
@@ -132,7 +140,8 @@ If not specified, the file will be added to the same directory as the original o
 ```bash
 #: ix-config
 #: prefix: ¤
-#: out: $HOME/¤{{ user.images }}/profile.png
+#: to: $HOME/¤{{ user.images }}/
+#: as: new_profile.png
 ```
 
 <br><br>
