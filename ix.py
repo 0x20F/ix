@@ -33,17 +33,17 @@ def success(message):
 
 class File:
     def __init__(self, root, name, notation) -> None:
-        self.path = root + '/' + name
+        self.original_path = root + '/' + name
         self.name = name
-        self.root = root
         self.notation = notation
-        
-        self.to = ''
-        self.prefix = '#'
 
         # Flags
         self.has_custom_dir = False
         self.has_custom_name = False
+
+        # Config fields
+        self.to = root
+        self.prefix = '#'
         
         self.fields = {
             'to': self.__set_to,
@@ -53,32 +53,29 @@ class File:
 
 
     def get_output_path(self) -> str:
-        # If no custom directory was specified
-        # We write a new file to the current directory.
+        extension = ''
+
+        # If no custom directory was defined
+        # and no custom filename was defined
+        # we add '.ix' to the original file name
+        # when saving so we don't overwrite the original
         if not self.has_custom_dir:
-            extension = '.ix'
-            
-            # If a custom file name was speified, we don't
-            # want the '.ix' extension
-            if self.has_custom_name:
-                extension = ''
-                
-            return self.path + '/' + self.name + extension
+            if not self.has_custom_name:
+                extension = '.ix'
         
         # If we have a custom directory
         # we write to that directory, with whatever the current
         # name is.
-        return self.to + '/' + self.name
+        return self.to + '/' + self.name + extension
 
 
     def __set_to(self, data):
         expanded = os.path.expandvars(data)
         expanded = self.expand_ix_vars(expanded)
 
+        # If the given directory does not exist
+        # we want to create it.
         if not os.path.isdir(expanded):
-            # If it's not a file, and not a directory, then it doesn't exist
-            # so we create a directory and assume we want the file to be stored in
-            # that directory under the same name
             info('{} does not exist, creating it for the following file: {}'.format(expanded, self.name))
             os.makedirs(expanded)
 
@@ -103,7 +100,7 @@ class File:
 
 
     def parse(self):
-        file = open(self.path)
+        file = open(self.original_path)
         parsed = self.expand_ix_vars(file.read())
 
         file.close()
@@ -111,7 +108,7 @@ class File:
 
 
     def expand_ix_vars(self, string):
-        pattern = re.compile('%s{{(.+?)}}' % self.prefix, re.MULTILINE)
+        pattern = re.compile('%s{{(.+?)}}' % re.escape(self.prefix), re.MULTILINE)
         items = re.findall(pattern, string)
         items = set(items)
 
@@ -130,7 +127,7 @@ class File:
                 contents = contents.replace(full_key, resolved)
             except:
                 message = 'Did not find any items with the name {} in the configuration.\n\tUsed in file: {}\n'
-                warn(message.format(full_key, self.path))
+                warn(message.format(full_key, self.original_path))
                 continue
 
         return contents
@@ -151,7 +148,7 @@ def find_ix(root):
 
     ix_files = []
 
-    for root, _, files in os.walk(root_path):
+    for root, _, files in os.walk(root):
 
         for name in files:
 
