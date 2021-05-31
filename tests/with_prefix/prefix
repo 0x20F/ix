@@ -1,0 +1,14 @@
+#: ix-config
+#: prefix: $
+
+This file has a few variables with the right prefix
+and a few variables with the original one in order to make sure
+that only the ones with the defined prefix get replaced.
+
+#{{ paths.users }}
+#{{ paths.users }}
+#{{ paths.users }}
+
+${{ paths.users }}
+${{ paths.users }}
+${{ paths.users }}
