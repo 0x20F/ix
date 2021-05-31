@@ -3,6 +3,9 @@ import configparser
 import argparse
 import re
 import threading
+import json
+import hashlib
+from datetime import datetime
 
 # Windows handles colors weirdly by default
 if os.name == 'nt':
@@ -16,18 +19,13 @@ GREEN = "\x1B[32;1m"
 YELLOW = "\x1B[33;1m"
 RESET = "\x1B[0m"
 WHITE = '\x1B[37;1m'
+MAGENTA = '\x1B[35;1m'
 
-def info(message):
-    print(CYAN + 'ℹ' + WHITE, message, RESET)
-
-def error(message):
-    print(RED + '✖', message, RESET)
-
-def warn(message):
-    print(YELLOW + '⚠' + WHITE, message, RESET)
-
-def success(message):
-    print(GREEN + '✔' + WHITE, message, RESET)
+def info(message):      print(CYAN + 'ℹ' + WHITE, message, RESET)
+def error(message):     print(RED + '✖', message, RESET)
+def warn(message):      print(YELLOW + '⚠' + WHITE, message, RESET)
+def success(message):   print(GREEN + '✔' + WHITE, message, RESET)
+def log(message):       print(MAGENTA + '~' + WHITE, message, RESET)
 
 
 
@@ -36,6 +34,7 @@ class File:
         self.original_path = root + '/' + name
         self.name = name
         self.notation = notation
+        self.hash = ''
 
         # Flags
         self.has_custom_dir = False
@@ -106,6 +105,36 @@ class File:
         self.access = int(data, 8)
 
 
+    def to_dict(self):
+        return {
+            'hash': self.hash_contents(),
+            'output': self.get_output_path(),
+            'created_at': str(datetime.now())
+        }
+
+
+    def hash_contents(self):
+        if self.hash != '':
+            return self.hash
+
+        md5 = hashlib.md5()
+
+        # Hash the template contents so we can lock the file
+        with open(self.original_path, 'rb') as bytes:
+            while True:
+                data = bytes.read(65536)
+
+                if not data:
+                    break
+
+                md5.update(data)
+
+        digest = md5.hexdigest()
+        self.hash = digest
+        
+        return digest
+    
+
     def parse_field(self, field):
         field, data = field.split(':', 1)
 
@@ -167,7 +196,6 @@ def find_ix(root):
         for name in files:
 
             if name.endswith('.ix'):
-                info('Found ix file, skipping...')
                 continue
 
             full_path = root + '/' + name
@@ -237,6 +265,24 @@ def read_config(at):
     return config
 
 
+def read_lock_file(path):
+    try:
+        file = open(path + '/ix.lock')
+
+        return json.loads(file.read())
+    except FileNotFoundError:
+        # Start fresh if the file doesn't exist
+        return {}
+
+
+def save_lock_file(path, data):
+    if not os.path.isdir(path):
+        os.makedirs(path)
+
+    with open(path + '/ix.lock', 'w') as lock:
+        lock.write(json.dumps(data))
+
+
 def process_file(file):
     # Regex to find all comments that have something to do with ix
     # so we can remove them in the processed file
@@ -253,32 +299,56 @@ def process_file(file):
 
         if file.has_custom_access:
             os.chmod(file.get_output_path(), file.access)
+
+        lock_file[file.original_path] = file.to_dict()
     except FileNotFoundError:
         error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path))
         return
 
-    success('Saving: ' + file.original_path + ' to ' + file.get_output_path())
+    success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()))
 
 
 def main():
     threads = list()
 
     files = find_ix(root_path)
+    unchanged = 0
+    saved = 0
 
     if len(files) > 0:
-        info('Found total of {} ix compatible files'.format(len(files)))
-        info('Parsing...\n\n')
+        info('Found {} ix compatible files'.format(len(files)))
     else:
-        warn('Found no ix compatible files in the given directory: {}'.format(root_path))
+        log('Found no ix compatible files in: {}.'.format(root_path))
+        log('Exiting.')
         return
 
     for file in files:
+        # Don't run for files that haven't changed
+        hash = file.hash_contents()
+        lock = lock_file[file.original_path]
+
+        if hash == lock['hash']:
+            unchanged += 1
+            continue
+
         thread = threading.Thread(target=process_file, args=(file,))
         threads.append(thread)
         thread.start()
 
+        saved += 1
+
     for thread in threads:
         thread.join()
+
+    # Logging
+    if saved > 0:
+        success('Saved {} files'.format(saved))
+    
+    if unchanged > 0:
+        log('Skipped {} files because they were unchanged'.format(unchanged))
+
+    # Cache all the parsed files
+    save_lock_file(lock_path, lock_file)
 
 
 
@@ -291,6 +361,7 @@ sequence = [ '{{', '}}' ]
 # Directory configurations
 root_path = os.path.expandvars('$HOME/dots')
 config_path = os.path.expandvars('$HOME/.config/ix/ixrc')
+lock_path = os.path.expandvars('$HOME/.cache/ix')
 
 # Commandline arguments
 parser = argparse.ArgumentParser(description='Find and replace variables in files within a given directory')
@@ -307,6 +378,9 @@ if args.config:
 
 # Load in the config
 config = read_config(config_path)
+
+# Load in the cache
+lock_file = read_lock_file(lock_path)
 
 
 # Run
