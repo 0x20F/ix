@@ -125,6 +125,10 @@ echo ¤{{ magical.variable }}
 The output directory for the file.
 
 If not specified, the file will be added to the same directory as the original one, but with an `.ix` extension so it doesn't overwrite the original one (unlesss specified otherwise with the `as` key).
+```bash
+#: ix-config
+#: to: /dev/null
+```
 
 <br>
 
@@ -133,6 +137,10 @@ The name of the processed file.
 This is what the processed file will be saved as.
 
 If not specified, the file will be saved under the same name.
+```bash
+#: ix-config
+#: as: script.sh
+```
 
 <br>
 
