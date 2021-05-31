@@ -1,4 +1,5 @@
 import unittest
+import os
 import ix
 
 
@@ -81,6 +82,21 @@ class TestIxParsing(unittest.TestCase):
 
         self.assertEqual(name, test_name)
         self.assertEqual(file.get_output_path(), file.to + '/testName')
+
+
+    def test_file_permissions(self):
+        '''
+        Test that the access configuration field updates the final file
+        permissions
+        '''
+        files = ix.find_ix(test_directory + '/with_access')
+        file = files[0]
+
+        self.assertEqual(file.access, int('777', 8))
+        output_path = file.get_output_path()
+
+        ix.process_file(file)
+        self.assertTrue(os.access(output_path, os.X_OK))
 
 
     def test_ix_extension_when_in_the_same_directory(self):

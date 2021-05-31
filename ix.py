@@ -40,10 +40,12 @@ class File:
         # Flags
         self.has_custom_dir = False
         self.has_custom_name = False
+        self.has_custom_access = False
 
         # Config fields
         self.to = root
         self.prefix = '#'
+        self.access = ''
         
         self.fields = {
             'to': self.__set_to,
@@ -52,7 +54,9 @@ class File:
             'as': self.__set_as,
             'name': self.__set_as,
 
-            'prefix': self.__set_prefix
+            'prefix': self.__set_prefix,
+
+            'access': self.__set_access
         }    
 
 
@@ -94,6 +98,12 @@ class File:
 
     def __set_prefix(self, data):
         self.prefix = data
+
+
+    def __set_access(self, data):
+        self.has_custom_access = True
+        # Turn the perms to octal since chmod only accepts that
+        self.access = int(data, 8)
 
 
     def parse_field(self, field):
@@ -240,6 +250,9 @@ def process_file(file):
         with open(file.get_output_path(), 'w') as f:
             f.write(processed)
             f.close()
+
+        if file.has_custom_access:
+            os.chmod(file.get_output_path(), file.access)
     except FileNotFoundError:
         error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path))
         return

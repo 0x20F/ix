@@ -1,0 +1,5 @@
+#: ix-config
+#: access: 777
+
+This file will have custom permissions because
+of the access flag
