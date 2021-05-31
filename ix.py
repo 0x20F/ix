@@ -499,13 +499,14 @@ def main():
         return
 
     for file in files:
-        # Don't run for files that haven't changed
-        hash = file.hash_contents()
-        lock = lock_file[file.original_path]
+        if file.original_path in lock_file:
+            hash = file.hash_contents()
+            lock = lock_file[file.original_path]
 
-        if hash == lock['hash']:
-            unchanged += 1
-            continue
+            # Don't run for files that haven't changed
+            if lock and hash == lock['hash']:
+                unchanged += 1
+                continue
 
         thread = threading.Thread(target=process_file, args=(file,))
         threads.append(thread)
