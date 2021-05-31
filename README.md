@@ -177,3 +177,4 @@ echo "This file is executable"
 
 ### TODO
 - More options for the `ix` configuration within each file
+- Lockfile somewhere in `~/.cache` so the files don't get parsed multiple times without any changes.
