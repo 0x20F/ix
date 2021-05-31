@@ -51,7 +51,7 @@ class File:
 
             'as': self.__set_as,
             'name': self.__set_as,
-            
+
             'prefix': self.__set_prefix
         }    
 
@@ -241,10 +241,10 @@ def process_file(file):
             f.write(processed)
             f.close()
     except FileNotFoundError:
-        error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.path))
+        error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path))
         return
 
-    success('Saving: ' + file.path + ' to ' + file.get_output_path())
+    success('Saving: ' + file.original_path + ' to ' + file.get_output_path())
 
 
 def main():
