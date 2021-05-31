@@ -1,35 +1,32 @@
-import os
-import configparser
-import argparse
-import re
-import threading
-import json
-import hashlib
+import os, configparser, argparse
+import re, threading, json, hashlib
 from datetime import datetime
 
-# Windows handles colors weirdly by default
-if os.name == 'nt':
-    os.system('color')
+
 
 
 # Colors
-RED = "\x1B[31;1m"
-CYAN = "\x1B[36m"
-GREEN = "\x1B[32;1m"
-YELLOW = "\x1B[33;1m"
-RESET = "\x1B[0m"
-WHITE = '\x1B[37;1m'
+RED     = '\x1B[31;1m'
+CYAN    = '\x1B[36m'
+GREEN   = '\x1B[32;1m'
+YELLOW  = '\x1B[33;1m'
+RESET   = '\x1B[0m'
+WHITE   = '\x1B[37;1m'
 MAGENTA = '\x1B[35;1m'
 
-def info(message):      print(CYAN + 'ℹ' + WHITE, message, RESET)
-def error(message):     print(RED + '✖', message, RESET)
-def warn(message):      print(YELLOW + '⚠' + WHITE, message, RESET)
-def success(message):   print(GREEN + '✔' + WHITE, message, RESET)
-def log(message):       print(MAGENTA + '~' + WHITE, message, RESET)
 
-
-
+#        _
+#    ___| | __ _ ___ ___  ___  ___
+#   / __| |/ _` / __/ __|/ _ \/ __|
+#  | (__| | (_| \__ \__ \  __/\__ \
+#   \___|_|\__,_|___/___/\___||___/
+# -------------------------------------------------------------------------
 class File:
+    '''
+    Structured class to keep track of everything about each
+    file that needs parsing. Such as the comment type,
+    the paths, the ix-configuration, and so on.
+    '''
     def __init__(self, root, name, notation) -> None:
         self.original_path = root + '/' + name
         self.name = name
@@ -59,7 +56,18 @@ class File:
         }    
 
 
+
     def get_output_path(self) -> str:
+        '''
+        Get the full (directory + filename) path for the current file.
+        Making sure to account for the location, and add an '.ix' extension
+        to the filename if the directory is the same as the original file.
+
+        We do not want to overwrite the original file.
+
+        Parameters:
+            self (File): The current file object
+        '''
         extension = ''
 
         # If no custom directory was defined
@@ -76,7 +84,20 @@ class File:
         return self.to + '/' + self.name + extension
 
 
+
     def __set_to(self, data):
+        '''
+        Update the directory that the processed file should be saved
+        to once done, making sure to create said directory if it 
+        doesn't exist already and to expand any environment variables
+        or 'ix' variables within it.
+
+        This is used to parse a specific field from the ix configuration.
+
+        Parameters:
+            self (File): The current file object
+            data (str): The new output directory
+        '''
         expanded = os.path.expandvars(data)
         expanded = self.expand_ix_vars(expanded)
 
@@ -90,22 +111,63 @@ class File:
         self.to = expanded
 
 
+
     def __set_as(self, data):
+        '''
+        Update the name that the processed file should have when it
+        gets saved to the file system.
+
+        This is used to parse a specific field from the ix configuration.
+
+        Parameters:
+            self (File): The current file object
+            data (str): The new file name + extension (if any)
+        '''
         self.has_custom_name = True
-        self.name = data
+        self.name = self.expand_ix_vars(data)
+
 
 
     def __set_prefix(self, data):
-        self.prefix = data
+        '''
+        Replace the default prefix for this specific file.
+
+        This is used to parse a specific field from the ix configuration.
+
+        Parameters:
+            self (File): The current file object
+            data (str): The new prefix
+        '''
+        self.prefix = self.expand_ix_vars(data)
+
 
 
     def __set_access(self, data):
+        '''
+        Take in a decimal string of permissions in 'chmod' format
+        and turn them into an octal value instead since that is the
+        only format the python implementation of chmod will accept.
+
+        This is used to parse a specific field from the ix configuration.
+
+        Parameters:
+            self (File): The current file object
+            data (str): The permissions in 'chmod' format
+        '''
         self.has_custom_access = True
         # Turn the perms to octal since chmod only accepts that
-        self.access = int(data, 8)
+        self.access = int(self.expand_ix_vars(data), 8)
+
 
 
     def to_dict(self):
+        '''
+        Put everything about this file that we want to store in 
+        the lock file within a dictionary
+
+        Parameters:
+            self (File): The current file object
+        '''
         return {
             'hash': self.hash_contents(),
             'output': self.get_output_path(),
@@ -113,13 +175,29 @@ class File:
         }
 
 
+
     def hash_contents(self):
+        '''
+        Hash the entire file contents, not all at once of course,
+        do it in chunks in case we hit some massive files we don't want to
+        eat up all the RAM.
+
+        The hash is later used to create unique identifiers for different purposes.
+        One of which is to store the hash in the lock file and later compare when 
+        checking whether or not a file should be parsed again.
+
+        The hashing is done in md5 since it's fast and we really don't have to
+        worry about colisions. The chances of the same file colliding are extremely
+        small.
+
+        Parameters:
+            self (File): The current file object
+        '''
         if self.hash != '':
             return self.hash
 
         md5 = hashlib.md5()
 
-        # Hash the template contents so we can lock the file
         with open(self.original_path, 'rb') as bytes:
             while True:
                 data = bytes.read(65536)
@@ -135,14 +213,32 @@ class File:
         return digest
     
 
+
     def parse_field(self, field):
+        '''
+        Parse a given 'ix' configuration field. Usually comes in the following
+        format `out: /path/to/whatever`. Find out what item this configuration
+        field refers to and run the expected actions for said item.
+
+        Parameters:
+            self (File): The current file object
+            field (str): The field line directly from a file, with the comment stripped
+        '''
         field, data = field.split(':', 1)
 
         parse = self.fields.get(field, lambda: 'No such field: ' + field)
         parse(data.strip())
 
 
+
     def parse(self):
+        '''
+        Parse the contents of the file, replacing
+        all variables with their defined values.
+
+        Parameters:
+            self (File): The current file obejct
+        '''
         file = open(self.original_path)
         parsed = self.expand_ix_vars(file.read())
 
@@ -150,7 +246,22 @@ class File:
         return parsed
 
 
+
     def expand_ix_vars(self, string):
+        '''
+        Look through a given string of data in a file and find every
+        variable starting with the prefix defined for that specific file.
+
+        Replace all those variables with their related values inside the
+        configuration file.
+
+        Parameters:
+            self (File): The current file object
+            string (str): The string contents in which to look for variables
+
+        Returns:
+            contents (str): The original content with all the variables replaced
+        '''
         pattern = re.compile('%s{{(.+?)}}' % re.escape(self.prefix), re.MULTILINE)
         items = re.findall(pattern, string)
         items = set(items)
@@ -174,6 +285,20 @@ class File:
                 continue
 
         return contents
+
+
+#    __                  _   _
+#   / _|_   _ _ __   ___| |_(_) ___  _ __  ___
+#  | |_| | | | '_ \ / __| __| |/ _ \| '_ \/ __|
+#  |  _| |_| | | | | (__| |_| | (_) | | | \__ \
+#  |_|  \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
+# -------------------------------------------------------------------------
+def info(message):      print(CYAN + 'ℹ' + WHITE, message, RESET)
+def error(message):     print(RED + '✖', message, RESET)
+def warn(message):      print(YELLOW + '⚠' + WHITE, message, RESET)
+def success(message):   print(GREEN + '✔' + WHITE, message, RESET)
+def log(message):       print(MAGENTA + '~' + WHITE, message, RESET)
+
 
 
 def find_ix(root):
@@ -257,7 +382,16 @@ def find_ix(root):
     return ix_files
 
 
+
 def read_config(at):
+    '''
+    Read the 'ix' configuration from it's specific path.
+    Either user defined, or the default one. Use config parser
+    to load and resolve all the magic that the .ini format provides.
+
+    Parameters:
+        at (str): The exact path to the config file
+    '''
     config = configparser.ConfigParser()
     config._interpolation = configparser.ExtendedInterpolation()
     config.read(at)
@@ -265,7 +399,17 @@ def read_config(at):
     return config
 
 
+
 def read_lock_file(path):
+    '''
+    Read a JSON file into a dictionary allowing us to do
+    quick lookups for specific files whenever we need to check
+    if one was already parsed or not, allowing us to skip part of the
+    process.
+
+    Parameters:
+        path (str): The directory of the lock file
+    '''
     try:
         file = open(path + '/ix.lock')
 
@@ -275,7 +419,19 @@ def read_lock_file(path):
         return {}
 
 
+
 def save_lock_file(path, data):
+    '''
+    Save a dictionary full of all parsed files to a file.
+    This will be used later on when 'ix' runs again in order
+    to check which files have changed and only re-process those files.
+
+    Giving a bit of a performance boost in very large directories.
+
+    Parameters:
+        path (str): The directory of the lock file
+        data (dict): Dictionary full of all the file data that we care about saving
+    '''
     if not os.path.isdir(path):
         os.makedirs(path)
 
@@ -283,7 +439,19 @@ def save_lock_file(path, data):
         lock.write(json.dumps(data))
 
 
+
 def process_file(file):
+    '''
+    Go through the given file's contents and make sure to replace
+    all the variables that have matches within the 'ixrc' configuration
+    as well as making sure to remove every trace of 'ix' itself from
+    the processed file, leaving it nice and clean, as well as making sure
+    to add the processed file to the lock file so we don't have to process
+    it again unless it's contents change.
+
+    Parameters:
+        file (File): The file object to parse
+    '''
     # Regex to find all comments that have something to do with ix
     # so we can remove them in the processed file
     regex = re.compile('^{}.+[\s\S]$'.format(file.notation), re.MULTILINE)
@@ -308,7 +476,15 @@ def process_file(file):
     success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()))
 
 
+
 def main():
+    '''
+    The main entrypoint for the program.
+    Initializes everything that needs to happen.
+    From finding all the 'ix' files to creating new Threads for
+    parsing each of the available files, as well as saving and updating
+    the lock file once everything has been processed.
+    '''
     threads = list()
 
     files = find_ix(root_path)
@@ -352,6 +528,13 @@ def main():
 
 
 
+#                    __ _                       _   _
+#    ___ ___  _ __  / _(_) __ _ _   _ _ __ __ _| |_(_) ___  _ __
+#   / __/ _ \| '_ \| |_| |/ _` | | | | '__/ _` | __| |/ _ \| '_ \
+#  | (_| (_) | | | |  _| | (_| | |_| | | | (_| | |_| | (_) | | | |
+#   \___\___/|_| |_|_| |_|\__, |\__,_|_|  \__,_|\__|_|\___/|_| |_|
+#                         |___/
+# -------------------------------------------------------------------------
 # Symbol configurations
 notation = ':'
 trigger = 'ix-config'
@@ -385,4 +568,8 @@ lock_file = read_lock_file(lock_path)
 
 # Run
 if __name__ == '__main__':
+    # Windows handles colors weirdly by default
+    if os.name == 'nt':
+        os.system('color')
+
     main()
