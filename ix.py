@@ -38,38 +38,57 @@ class File:
         self.root = root
         self.notation = notation
         
-        self.out = ''
+        self.to = ''
         self.prefix = '#'
+
+        # Flags
+        self.has_custom_dir = False
+        self.has_custom_name = False
         
         self.fields = {
-            'out': self.__set_out,
+            'to': self.__set_to,
+            'as': self.__set_as,
             'prefix': self.__set_prefix
         }    
 
 
-    def get_out(self) -> str:
-        if self.out == '':
-            return self.path + '.ix'
+    def get_output_path(self) -> str:
+        # If no custom directory was specified
+        # We write a new file to the current directory.
+        if not self.has_custom_dir:
+            extension = '.ix'
+            
+            # If a custom file name was speified, we don't
+            # want the '.ix' extension
+            if self.has_custom_name:
+                extension = ''
+                
+            return self.path + '/' + self.name + extension
         
-        return self.out
+        # If we have a custom directory
+        # we write to that directory, with whatever the current
+        # name is.
+        return self.to + '/' + self.name
 
 
-    def __set_out(self, data):
+    def __set_to(self, data):
         expanded = os.path.expandvars(data)
         expanded = self.expand_ix_vars(expanded)
 
-        if not os.path.isfile(expanded):
-            if not os.path.isdir(expanded):
-                # If it's not a file, and not a directory, then it doesn't exist
-                # so we create a directory and assume we want the file to be stored in
-                # that directory under the same name
-                info('{} does not exist, creating it for the following file: {}'.format(expanded, self.name))
-                os.makedirs(expanded)
+        if not os.path.isdir(expanded):
+            # If it's not a file, and not a directory, then it doesn't exist
+            # so we create a directory and assume we want the file to be stored in
+            # that directory under the same name
+            info('{} does not exist, creating it for the following file: {}'.format(expanded, self.name))
+            os.makedirs(expanded)
 
-            # If it's a directory, we add the file to that directory
-            expanded += '/' + self.name
+        self.has_custom_dir = True
+        self.to = expanded
 
-        self.out = expanded
+
+    def __set_as(self, data):
+        self.has_custom_name = True
+        self.name = data
 
 
     def __set_prefix(self, data):
@@ -217,14 +236,14 @@ def process_file(file):
         processed = processed.replace(line, '')
 
     try:
-        with open(file.get_out(), 'w') as f:
+        with open(file.get_output_path(), 'w') as f:
             f.write(processed)
             f.close()
     except FileNotFoundError:
-        error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_out(), file.path))
+        error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.path))
         return
 
-    success('Saving: ' + file.get_out())
+    success('Saving: ' + file.path + ' to ' + file.get_output_path())
 
 
 def main():
