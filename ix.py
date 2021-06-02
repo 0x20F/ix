@@ -563,7 +563,7 @@ if args.field:
     # if only one field is needed
     config = read_config(config_path)
     section, variable = args.field.split('.')
-    print(config[section][variable])
+    print(os.path.expandvars(config[section][variable]))
     exit()
 
 if args.directory:
