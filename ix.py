@@ -559,11 +559,12 @@ if args.config:
     config_path = args.config
 
 if args.field:
-    # The whole thing doesn't need to run
-    # if only one field is needed
     config = read_config(config_path)
     section, variable = args.field.split('.')
     print(os.path.expandvars(config[section][variable]))
+
+    # The whole thing doesn't need to run
+    # if only one field is needed
     exit()
 
 if args.directory:
