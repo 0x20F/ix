@@ -14,6 +14,7 @@
 - variables to be processed are defined as follows `#{{ section.variable }}`.
 - default config directory `~/.config/ix/ixrc` (overwrite with `-c`)
 - default parse directory `~/dots` (overwrite with `-d`)
+- full docs [here](https://github.com/0x20F/ix/wiki/Documentation)
 
 
 <br><br>
@@ -53,7 +54,7 @@ The lines after the definition can contain more information about how `ix` shoul
 
 ...
 ```
-##### Check the full list of available options in the [documentation section](#documentation)
+##### Check the full list of available options in the [documentation section](https://github.com/0x20F/ix/wiki/Documentation)
 
 Here we tell `ix` to store the file inside `/etc/whatever` after it's been parsed, under the same name as the original file. Notice that the information related to `ix` is directly after the definition. This matters.
 
@@ -92,89 +93,4 @@ executable --color blue # and so on...
 ```
 > Notice that it got rid of the `ix` definitions as well.
 
-<br><br>
-
-## Documentation
-All available options for telling `ix` how to handle a specific file
-
 <br>
-
-#### `ix-config`
-**The declaration** that turns a file into something that `ix` will process. It must show up within the first 20 lines of the file.
-
-<br>
-
-#### `prefix`
-Custom symbol for the variable inclusion syntax.
-
-> Note: This field (if used) needs to be the first thing in the configuration (after the declaration)
-
-The default is `#` so variables are included like so `#{{ variable.name }}`
-
-The prefix can be any symbol(s) you want, e.g:
-```bash
-#: ix-config
-#: prefix: ¤
-
-echo ¤{{ magical.variable }}
-```
-
-<br>
-
-#### `to` | `out`
-The output directory for the file.
-> If the directory does not exist, it will be created before saving the file.
-
-If not specified, the file will be added to the same directory as the original one, but with an `.ix` extension so it doesn't overwrite the original one (unlesss specified otherwise with the `as` key).
-```bash
-#: ix-config
-#: to: /dev
-```
-
-<br>
-
-#### `as` | `name`
-The name of the processed file.
-This is what the processed file will be saved as.
-
-If not specified, the file will be saved under the same name.
-```bash
-#: ix-config
-#: as: script.sh
-```
-
-<br>
-
-#### `access`
-Custom permissions to be set on the created file.
-
-They will be set using python's `chmod` implementation so all numeric values will work. You can't do `+x` and the likes though, you'll have to do a numeric value.
-```bash
-#: ix-config
-#: access: 777
-
-echo "This file is executable"
-```
-
-<br>
-
-#### All together now:
-```bash
-#: ix-config
-#: prefix: ¤
-#: to: $HOME/¤{{ user.images }}/
-#: as: new_profile.png
-```
-
-<br><br>
-
-### Misc
-- `ix` variables can be used within the `ix` definitions as well, not just environment variables
-
-
-<br><br>
-
-
-### TODO
-- More options for the `ix` configuration within each file
-- Lockfile somewhere in `~/.cache` so the files don't get parsed multiple times without any changes.
