@@ -551,14 +551,24 @@ lock_path = os.path.expandvars('$HOME/.cache/ix')
 parser = argparse.ArgumentParser(description='Find and replace variables in files within a given directory')
 parser.add_argument('-c', '--config', help='The path where the .ix configuration is located. Default $HOME/.config/ix/ixrc')
 parser.add_argument('-d', '--directory', help='The directory to parse. Default $HOME/dots')
+parser.add_argument('-f', '--field', help='Get a specific field value from the config')
 
 args = parser.parse_args()
+
+if args.config:
+    config_path = args.config
+
+if args.field:
+    # The whole thing doesn't need to run
+    # if only one field is needed
+    config = read_config(config_path)
+    section, variable = args.field.split('.')
+    print(config[section][variable])
+    exit()
 
 if args.directory:
     root_path = args.directory
 
-if args.config:
-    config_path = args.config
 
 # Load in the config
 config = read_config(config_path)
