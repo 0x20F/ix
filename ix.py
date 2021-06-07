@@ -635,6 +635,7 @@ parser = argparse.ArgumentParser(description='Find and replace variables in file
 parser.add_argument('-c', '--config', help='The path where the .ix configuration is located. Default $HOME/.config/ix/ixrc')
 parser.add_argument('-d', '--directory', help='The directory to parse. Default $HOME/dots')
 parser.add_argument('-f', '--field', help='Get a specific field value from the config')
+parser.add_argument('--full', help='Skip looking at the cache and parse everything', action='store_false')
 
 args = parser.parse_args()
 
@@ -653,12 +654,15 @@ if args.field:
 if args.directory:
     root_path = args.directory
 
+if not args.full:
+    lock_file = {}
+else:
+    # Load in the cache
+    lock_file = read_lock_file(lock_path)
+
 
 # Load in the config
 config = read_config(config_path)
-
-# Load in the cache
-lock_file = read_lock_file(lock_path)
 
 
 # Run
@@ -666,5 +670,8 @@ if __name__ == '__main__':
     # Windows handles colors weirdly by default
     if os.name == 'nt':
         os.system('color')
+
+    if not args.full:
+        info('Skipping cache, doing a full parse...')
 
     main()
