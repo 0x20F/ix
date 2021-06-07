@@ -1,0 +1,12 @@
+This is an ix config file so hurrah,
+it should find it.
+
+#: ix-config
+#: prefix: @
+#: to: $HOME/@{{ data.red }}/one
+#: as: testName
+
+
+Here's some text that uses variables:
+One sentence using @{{ data.one }}
+And another using @{{ data.two }}. Very detailed...

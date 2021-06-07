@@ -34,11 +34,7 @@ class Helpers:
         return parse(parameters)
 
     def __include(self, parameters):
-        filename = os.path.expandvars(parameters[0])
-        
-        #with open(filename):
-
-        return ''
+        pass
 
     def __uppercase(self, parameters):
         pass
@@ -302,11 +298,10 @@ class File:
         for key in items:
             helper = ''
             parameters = ''
-            key = key.strip()
 
             # Helper defined besides the normal parameter
-            if len(key.split(' ')) > 1:
-                helper, parameters = key.split(' ', 1)
+            if len(key.strip().split(' ')) > 1:
+                helper, parameters = key.strip().split(' ', 1)
 
             full_key = '{}{}{}{}'.format(self.prefix, sequence[0], key, sequence[1])
 
@@ -317,11 +312,22 @@ class File:
                     parameters = [ self.expand_ix_vars(param) for param in parameters.split(',') ]
                     resolved = self.helpers.call(helper, parameters)
                 else:
-                    k, v = parameters.strip().split('.', 1)
+                    k, v = key.strip().split('.', 1)
                     resolved = config[k][v]
 
                 contents = contents.replace(full_key, resolved)
-            except:
+            except Exception as e:
+                print()
+                print()
+                print(config_path)
+                print(config.sections())
+                print(self.original_path)
+                print()
+                print()
+
+                print(f'Shit broke: {e!r}')
+                continue
+
                 message = 'Did not find any items with the name {} in the configuration.\n\tUsed in file: {}\n'
                 warn(message.format(full_key, self.original_path))
                 continue
@@ -352,7 +358,9 @@ def wrap_file(file_path):
     # Try and open the file as a normal text file
     # Abort if it's binary or something else
     try:
-        file = open(file_path, 'r')  
+        file = open(file_path, 'r')
+        lines = list(file)
+        file.close()
     except PermissionError:
         info('No permission to access file, ignoring: ' + file_path)
         return None
@@ -360,7 +368,6 @@ def wrap_file(file_path):
         info('Found non-text file, ignoring: ' + file_path)
         return None
 
-    lines = list(file)
     found = False
     current = None
 
