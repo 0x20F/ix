@@ -390,6 +390,11 @@ def log(message):       print(MAGENTA + '~' + WHITE, message, RESET)
 
 
 def replace_secondary_value(string, key):
+    '''
+    Look through a given string for secondary values.
+    Variables within ${{  }}. These are used to denote ix variables
+    within other variables when using helpers.
+    '''
     try:
         value = resolve_config_key(key)
         string = string.replace('[' + key + ']', value)
@@ -400,6 +405,10 @@ def replace_secondary_value(string, key):
 
 
 def resolve_config_key(key):
+    '''
+    Given a key of the format 'key.value', find out what the
+    value for the variable of that format is within the ix config.
+    '''
     try:
         k, v = key.strip().split('.', 1)
         return config[k][v]
@@ -409,9 +418,14 @@ def resolve_config_key(key):
 
 
 def get_file_lines(file_path):
-    # Try and open the file as a normal text file
-    # Abort if it's binary or something else
+    '''
+    Try and open a file as a normal text file.
+    If succeeded, return an array of all the lines 
+    inside that file.
+    '''
     try:
+        # Try and open the file as a normal text file
+        # Abort if it's binary or something else
         file = open(file_path, 'r')
         lines = list(file)
         file.close()
@@ -427,6 +441,14 @@ def get_file_lines(file_path):
 
 
 def wrap_file(file_path):
+    '''
+    Wrap a file and its contents with the custom File class
+    to allow for easier handling. 
+
+    This finds whether or not a file is ix compatible, what 
+    comment type it uses, and makes sure to setup all the ix
+    configuration found within the file.
+    '''
     root, name = file_path.rsplit('/', 1)
 
     file = get_file_lines(file_path)
@@ -686,10 +708,11 @@ if args.field:
 if args.directory:
     root_path = args.directory
 
+# Load in the cache if not specified
+# otherwise.
 if not args.full:
     lock_file = {}
 else:
-    # Load in the cache
     lock_file = read_lock_file(lock_path)
 
 
