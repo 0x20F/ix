@@ -547,8 +547,9 @@ def read_lock_file(path):
     '''
     try:
         file = open(path + '/ix.lock')
-
-        return json.loads(file.read())
+        contents = json.loads(file.read())
+        file.close()
+        return contents
     except FileNotFoundError:
         # Start fresh if the file doesn't exist
         return {}
