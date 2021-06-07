@@ -22,6 +22,12 @@ MAGENTA = '\x1B[35;1m'
 #   \___|_|\__,_|___/___/\___||___/
 # -------------------------------------------------------------------------
 class Helpers:
+    '''
+    List of all the helpers that can be used within files when
+    including variables and/or templating
+
+    Helpers can only be used within main variables, aka. '${{ thing.thing }}'
+    '''
     def __init__(self) -> None:
         self.helpers = {
             'include': self.__include,
@@ -31,11 +37,23 @@ class Helpers:
 
 
     def call(self, what, parameters):
+        '''
+        Call a specific helper, if defined
+        '''
         parse = self.helpers.get(what, lambda: 'No such helper: ' + what)
         return parse(parameters)
 
 
     def __include(self, parameters):
+        '''
+        Include a given file directly into the current file.
+        This allows you to import/merge multiple files into one.
+
+        If the file you're importing is an ix compatible file,
+        it will be parsed, otherwise the plain text will be included.
+
+        Environment variables work, as well as ix variables.
+        '''
         path = os.path.expandvars(parameters[0])
         file = wrap_file(path)
         
@@ -48,11 +66,23 @@ class Helpers:
 
 
     def __uppercase(self, parameters):
-        pass
+        '''
+        Turn a given string to uppercase.
+
+        Environment variables work, as well as ix variables.
+        '''
+        string = parameters[0]
+        return string.upper()
 
 
     def __lowercase(self, parameters):
-        pass
+        '''
+        Turn a given string to lowercase.
+
+        Environment variables work, as well as ix variables.
+        '''
+        string = parameters[0]
+        return string.lower()
 
 
 
