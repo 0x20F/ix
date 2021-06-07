@@ -21,6 +21,33 @@ MAGENTA = '\x1B[35;1m'
 #  | (__| | (_| \__ \__ \  __/\__ \
 #   \___|_|\__,_|___/___/\___||___/
 # -------------------------------------------------------------------------
+class Helpers:
+    def __init__(self) -> None:
+        self.helpers = {
+            'include': self.__include,
+            'uppercase': self.__uppercase,
+            'lowercase': self.__lowercase
+        }
+
+    def call(self, what, parameters):
+        parse = self.helpers.get(what, lambda: 'No such helper: ' + what)
+        return parse(parameters)
+
+    def __include(self, parameters):
+        filename = os.path.expandvars(parameters[0])
+        
+        #with open(filename):
+
+        return ''
+
+    def __uppercase(self, parameters):
+        pass
+
+    def __lowercase(self, parameters):
+        pass
+
+
+
 class File:
     '''
     Structured class to keep track of everything about each
@@ -32,6 +59,7 @@ class File:
         self.name = name
         self.notation = notation
         self.hash = ''
+        self.helpers = Helpers()
 
         # Flags
         self.has_custom_dir = False
@@ -53,7 +81,7 @@ class File:
             'prefix': self.__set_prefix,
 
             'access': self.__set_access
-        }    
+        }
 
 
 
@@ -272,12 +300,26 @@ class File:
         contents = string
 
         for key in items:
-            k, v = key.strip().split('.', 1)
+            helper = ''
+            parameters = ''
+            key = key.strip()
+
+            # Helper defined besides the normal parameter
+            if len(key.split(' ')) > 1:
+                helper, parameters = key.split(' ', 1)
+
             full_key = '{}{}{}{}'.format(self.prefix, sequence[0], key, sequence[1])
 
             try:
-                resolved = config[k][v]
-                
+                resolved = None
+
+                if helper != '':
+                    parameters = [ self.expand_ix_vars(param) for param in parameters.split(',') ]
+                    resolved = self.helpers.call(helper, parameters)
+                else:
+                    k, v = parameters.strip().split('.', 1)
+                    resolved = config[k][v]
+
                 contents = contents.replace(full_key, resolved)
             except:
                 message = 'Did not find any items with the name {} in the configuration.\n\tUsed in file: {}\n'
@@ -301,6 +343,56 @@ def log(message):       print(MAGENTA + '~' + WHITE, message, RESET)
 
 
 
+def wrap_file(file_path):
+    root, name = file_path.rsplit('/', 1)
+
+    file = None
+    lines = []
+
+    # Try and open the file as a normal text file
+    # Abort if it's binary or something else
+    try:
+        file = open(file_path, 'r')  
+    except PermissionError:
+        info('No permission to access file, ignoring: ' + file_path)
+        return None
+    except:
+        info('Found non-text file, ignoring: ' + file_path)
+        return None
+
+    lines = list(file)
+    found = False
+    current = None
+
+    # Check the first few lines of the file for the
+    # trigger otherwise assume this file is not to be 
+    # processed.
+    for i, line in enumerate(lines):
+        for entry in entries:
+            start = "{}{}".format(entry, notation)
+            
+            if line.startswith(start):
+                if trigger in line:
+                    found = True
+                    current = File(root, name, start)
+                    continue
+
+                if not found:
+                    continue
+
+                clean = line.replace(start, '').strip()
+
+                if clean.startswith(tuple(current.fields)):
+                    current.parse_field(clean)
+                    continue
+
+        if i == 20 and not found:
+            return None
+
+    return current
+
+
+
 def find_ix(root):
     '''
     Find all files that contain the 'ix' trigger so we know what 
@@ -317,67 +409,15 @@ def find_ix(root):
     ix_files = []
 
     for root, _, files in os.walk(root):
-
         for name in files:
-
             if name.endswith('.ix'):
                 continue
 
             full_path = root + '/' + name
-            file = None
-            current = None
-            found = False
-
-            # Try and open the file as a normal text file
-            # Abort if it's binary or something else
-            try:
-                file = open(full_path, 'r')        
-            except PermissionError:
-                info('No permission to access file, ignoring: ' + full_path)
-                continue
-            except:
-                info('Found non-text file, ignoring: ' + full_path)
-                continue
-
-            lines = []
-
-            # Try and read all the lines from the file
-            # Abort if characters can't be parsed
-            try:
-                lines = list(file)
-            except:
-                #print('Couldnt parse all characters in file: ' + full_path)
-                continue            
+            file = wrap_file(full_path)
             
-            # Check the first few lines of the file for the
-            # trigger otherwise assume this file is not to be 
-            # processed.
-            for i, line in enumerate(lines):
-                for entry in entries:
-                    start = "{}{}".format(entry, notation)
-                    
-                    if line.startswith(start):
-                        if trigger in line:
-                            found = True
-                            current = File(root, name, start)
-                            continue
-
-                        if not found:
-                            continue
-
-                        clean = line.replace(start, '').strip()
-
-                        if clean.startswith(tuple(current.fields)):
-                            current.parse_field(clean)
-                            continue
-
-                if i == 20 and not found:
-                    break
-            
-            if found:
-                ix_files.append(current)
-
-            file.close()
+            if file:
+                ix_files.append(file)
 
     return ix_files
 
@@ -575,7 +615,8 @@ if args.directory:
 config = read_config(config_path)
 
 # Load in the cache
-lock_file = read_lock_file(lock_path)
+#lock_file = read_lock_file(lock_path)
+lock_file = {}
 
 
 # Run
