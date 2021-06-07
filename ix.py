@@ -629,6 +629,8 @@ sequence = [ '{{', '}}' ]
 root_path = os.path.expandvars('$HOME/dots')
 config_path = os.path.expandvars('$HOME/.config/ix/ixrc')
 lock_path = os.path.expandvars('$HOME/.cache/ix')
+lock_file = None
+config = None
 
 # Commandline arguments
 parser = argparse.ArgumentParser(description='Find and replace variables in files within a given directory')
