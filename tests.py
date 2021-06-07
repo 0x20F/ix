@@ -165,6 +165,17 @@ class TestIxParsing(unittest.TestCase):
         self.assertTrue(parsed.count('@{{') == 0)
 
 
+    def test_file_inclusion(self):
+        import ix
+
+        ix.root_path = test_directory + '/helpers_inclusion'
+        ix.config = ix.read_config(ix.root_path + '/ixrc')
+
+        file = ix.find_ix(ix.root_path).pop()
+        parsed = file.parse()
+
+        self.assertTrue('UNIQUE{ TEMPLATE_CONTENT }' in parsed)
+
 
 if __name__ == '__main__':
     unittest.main()

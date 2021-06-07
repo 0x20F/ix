@@ -1,0 +1,8 @@
+#: ix-config
+
+
+
+Here is a template
+
+
+#{{ include [ paths.templates ]/first }}

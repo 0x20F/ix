@@ -29,15 +29,27 @@ class Helpers:
             'lowercase': self.__lowercase
         }
 
+
     def call(self, what, parameters):
         parse = self.helpers.get(what, lambda: 'No such helper: ' + what)
         return parse(parameters)
 
+
     def __include(self, parameters):
-        pass
+        path = os.path.expandvars(parameters[0])
+        file = wrap_file(path)
+        
+        # If it's not an ix file just read the contents
+        if not file:
+            with open(path) as f:
+                return f.read()
+        
+        return process_file(file)
+
 
     def __uppercase(self, parameters):
         pass
+
 
     def __lowercase(self, parameters):
         pass
@@ -50,7 +62,7 @@ class File:
     file that needs parsing. Such as the comment type,
     the paths, the ix-configuration, and so on.
     '''
-    def __init__(self, root, name, notation) -> None:
+    def __init__(self, root, name, notation = '#') -> None:
         self.original_path = root + '/' + name
         self.name = name
         self.notation = notation
@@ -286,51 +298,49 @@ class File:
         Returns:
             contents (str): The original content with all the variables replaced
         '''
-        pattern = re.compile('%s{{(.+?)}}' % re.escape(self.prefix), re.MULTILINE)
-        items = re.findall(pattern, string)
-        items = set(items)
-
-        if len(items) == 0:
-            return string
+        
+        # For smaller variables within the helpers e.g ${{ include [ this_one ] }}
+        secondary_pattern = re.compile('%s{{.+\[(.+?)\].+}}' % re.escape(self.prefix), re.MULTILINE)
+        secondary_items = set(re.findall(secondary_pattern, string))
 
         contents = string
+    
+        for key in secondary_items:
+            replaced = replace_secondary_value(contents, key)
 
-        for key in items:
+            if not replaced:
+                message = 'Did not find any items with the name [{}] in the configuration.\n\tUsed in file: {}\n'
+                warn(message.format(key, self.original_path))
+                continue
+                
+            contents = replaced
+
+
+        # For main variables that can contain helpers e.g ${{ include a/b/c }}
+        main_pattern = re.compile('%s{{(.+?)}}' % re.escape(self.prefix), re.MULTILINE)
+        main_items = set(re.findall(main_pattern, contents))        
+        
+        for key in main_items:
             helper = ''
             parameters = ''
+            resolved = None
+            full_key = '{}{}{}{}'.format(self.prefix, sequence[0], key, sequence[1])
 
-            # Helper defined besides the normal parameter
             if len(key.strip().split(' ')) > 1:
                 helper, parameters = key.strip().split(' ', 1)
 
-            full_key = '{}{}{}{}'.format(self.prefix, sequence[0], key, sequence[1])
+                parameters = parameters.split(',')
+                resolved = self.helpers.call(helper, parameters)
+            else:
+                resolved = resolve_config_key(key)
 
-            try:
-                resolved = None
+                if not resolved:
+                    message = 'Did not find any items with the name {} in the configuration.\n\tUsed in file: {}\n'
+                    warn(message.format(full_key, self.original_path))
+                    continue
 
-                if helper != '':
-                    parameters = [ self.expand_ix_vars(param) for param in parameters.split(',') ]
-                    resolved = self.helpers.call(helper, parameters)
-                else:
-                    k, v = key.strip().split('.', 1)
-                    resolved = config[k][v]
-
-                contents = contents.replace(full_key, resolved)
-            except Exception as e:
-                print()
-                print()
-                print(config_path)
-                print(config.sections())
-                print(self.original_path)
-                print()
-                print()
-
-                print(f'Shit broke: {e!r}')
-                continue
-
-                message = 'Did not find any items with the name {} in the configuration.\n\tUsed in file: {}\n'
-                warn(message.format(full_key, self.original_path))
-                continue
+            contents = contents.replace(full_key, resolved)
+            
 
         return contents
 
@@ -349,18 +359,34 @@ def log(message):       print(MAGENTA + '~' + WHITE, message, RESET)
 
 
 
-def wrap_file(file_path):
-    root, name = file_path.rsplit('/', 1)
+def replace_secondary_value(string, key):
+    try:
+        value = resolve_config_key(key)
+        string = string.replace('[' + key + ']', value)
+        return string
+    except:
+        return None
 
-    file = None
-    lines = []
 
+
+def resolve_config_key(key):
+    try:
+        k, v = key.strip().split('.', 1)
+        return config[k][v]
+    except:
+        return None
+
+
+
+def get_file_lines(file_path):
     # Try and open the file as a normal text file
     # Abort if it's binary or something else
     try:
         file = open(file_path, 'r')
         lines = list(file)
         file.close()
+
+        return lines
     except PermissionError:
         info('No permission to access file, ignoring: ' + file_path)
         return None
@@ -368,6 +394,16 @@ def wrap_file(file_path):
         info('Found non-text file, ignoring: ' + file_path)
         return None
 
+
+
+def wrap_file(file_path):
+    root, name = file_path.rsplit('/', 1)
+
+    file = get_file_lines(file_path)
+    if not file:
+        return None
+
+    lines = list(file)
     found = False
     current = None
 
