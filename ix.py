@@ -658,8 +658,7 @@ if args.directory:
 config = read_config(config_path)
 
 # Load in the cache
-#lock_file = read_lock_file(lock_path)
-lock_file = {}
+lock_file = read_lock_file(lock_path)
 
 
 # Run
