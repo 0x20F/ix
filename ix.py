@@ -77,6 +77,7 @@ class Parser:
         if len(stripped.split(' ', 1)) > 1:
             helper, parameters = stripped.split(' ', 1)
             parameters = [ param.strip() for param in parameters.split(';') ]
+            parameters = [ Parser.get_config_key(param) or param for param in parameters ]
             value = Helpers.call(helper, parameters)
         
         else:
@@ -840,9 +841,9 @@ if args.config:
 
 if args.field:
     config = read_config(config_path)
-    section, variable = args.field.split('.')
-    print(os.path.expandvars(config[section][variable]))
-
+    contents = Parser.get_main_key_value(args.field)
+    print(contents)
+    
     # The whole thing doesn't need to run
     # if only one field is needed
     exit()
