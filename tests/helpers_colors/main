@@ -6,6 +6,12 @@ helpers work as expected
 normal rgb
 #{{ rgb #181b21 }}
 
+just rgb
+#{{ rgb rgb(123, 123, 123) }}
+
+just rgb override opacity
+#{{ rgb rgb(123, 123, 123); 0.3 }}
+
 rgb with custom opacity from user
 #{{ rgb #181b21; 0.5 }}
 
@@ -31,6 +37,12 @@ rgb hex alpha variable override
 
 normal hex
 #{{ hex rgb(255, 255, 255) }}
+
+just hex
+#{{ hex #7289da }}
+
+just hex override opacity
+#{{ hex #7289da; 0.3 }}
 
 hex with custom opacity from user
 #{{ hex rgb(255, 255, 255); 0.9 }}

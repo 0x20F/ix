@@ -215,6 +215,12 @@ class TestIxParsing(unittest.TestCase):
         # rgb
         self.assertTrue('rgb(24, 27, 33)' in parsed)
 
+        # just rgb
+        self.assertTrue('rgb(123, 123, 123)' in parsed)
+
+        # just rgb override opacity
+        self.assertTrue('rgba(123, 123, 123, 0.3)' in parsed)
+
         # rgba
         self.assertTrue('rgba(24, 27, 33, 0.5)' in parsed)
 
@@ -235,6 +241,12 @@ class TestIxParsing(unittest.TestCase):
 
         # hex
         self.assertTrue('#ffffff' in parsed)
+
+        # just hex
+        self.assertTrue('#7289da' in parsed)
+
+        # just hex override opacity
+        self.assertTrue('#7289da4c' in parsed)
 
         # hex with alpha
         self.assertTrue('#ffffffe6' in parsed)

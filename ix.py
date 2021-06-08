@@ -313,28 +313,46 @@ class Helpers:
         '''
         try:
             method = getattr(Helpers, what)
-            return method(parameters)
+            return method(*parameters)
         except Exception as e:
             error(f'{e!r} ---- helper: {what}')
             return ''
 
 
     @staticmethod
-    def rgb(parameters):
+    def rgb(value, opacity = None):
         '''
         Take a hex string ( #181b21 ) and convert it to 'rgb'.
+        If an rgb or rgba string is provided, if the opacity isn't 
+        overwritten, it'll just return the string that was passed in.
+        If the opacity is overwritten, however, it'll replace the alpha
+        field within the given string.
 
         Optionally, pass in opacity to override or add the alpha channel.
         '''
-        string = parameters[0].lstrip('#')
+        # We got an rgb value
+        if not value.startswith('#'):
+            # Give it back as it is if no overrides are specified
+            if not opacity: return value
+
+            values = [ x.strip() for x in value.split('(', 1).pop().rstrip(')').split(',') ]
+            
+            r = values[0]
+            g = values[1]
+            b = values[2]
+            a = opacity
+
+            return f'rgba({r}, {g}, {b}, {a})'
+
+
+        string = value.lstrip('#')
         r, g, b = tuple(int(string[i:i+2], 16) for i in (0, 2, 4))
         a = ''
 
         if len(string) == 8:
             a = round(int(string[6:6+2], 16) / 255, 2)
 
-        if len(parameters) > 1:
-            opacity = parameters[1]
+        if opacity:
             a = opacity
 
         if a != '': tag = f'rgba({r}, {g}, {b}, {a})'
@@ -344,30 +362,42 @@ class Helpers:
 
 
     @staticmethod
-    def hex(parameters):
+    def hex(value, opacity = None):
         '''
         Take an rgb/rgba string and convert it to a hex representation
-        of the same color.
+        of the same color. If a hex string is provided, it'll return the exact
+        same hex string unless the opacity is overwritten. If it is, it'll
+        replace the alpha field within the given string.
 
         Optionally pass in opacity to override or add the alpha channel.
         '''
-        alpha = parameters[0].startswith('rgba')
-        string = parameters[0].split('(', 1).pop().rstrip(')').split(',')
+        if opacity:
+            opacity = hex(round(float(opacity) * 255))[2:]
+        
+        # We got a hex string
+        if value.startswith('#'):
+            # Give it back as it is if no overrides are specified
+            if not opacity: return value
 
-        r = hex(int(string[0]))[2:]
-        g = hex(int(string[1]))[2:]
-        b = hex(int(string[2]))[2:]
-        a = hex(round(float(string[3]) * 255))[2:] if alpha else ''
+            value = value[0:7]
+            return f'{value}{opacity}'
+            
+        alpha = value.startswith('rgba')
+        value = value.split('(', 1).pop().rstrip(')').split(',')
 
-        if len(parameters) > 1:
-            opacity = round(float(parameters[1]) * 255)
-            a = hex(opacity)[2:]
+        r = hex(int(value[0]))[2:]
+        g = hex(int(value[1]))[2:]
+        b = hex(int(value[2]))[2:]
+        a = hex(round(float(value[3]) * 255))[2:] if alpha else ''
+
+        if opacity:
+            a = opacity
 
         return f'#{r}{g}{b}{a}'
 
 
     @staticmethod
-    def include(parameters):
+    def include(path):
         '''
         Include a given file directly into the current file.
         This allows you to import/merge multiple files into one.
@@ -377,7 +407,7 @@ class Helpers:
 
         Environment variables work, as well as ix variables.
         '''
-        path = os.path.expandvars(parameters[0])
+        path = os.path.expandvars(path)
         file = Parser.wrap_file(path)
         
         # If it's not an ix file just read the contents
@@ -391,24 +421,22 @@ class Helpers:
 
 
     @staticmethod
-    def uppercase(parameters):
+    def uppercase(string):
         '''
         Turn a given string to uppercase.
 
         Environment variables work, as well as ix variables.
         '''
-        string = parameters[0]
         return string.upper()
 
 
     @staticmethod
-    def lowercase(parameters):
+    def lowercase(string):
         '''
         Turn a given string to lowercase.
 
         Environment variables work, as well as ix variables.
         '''
-        string = parameters[0]
         return string.lower()
 
 
