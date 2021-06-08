@@ -65,7 +65,7 @@ class Parser:
             string (str): The data we want to look through for variables
             prefix (str): What prefix the parent variables are denoted by
         '''
-        pattern = re.compile('%s{{.+\[(.+?)\].+}}' % re.escape(prefix), re.MULTILINE)
+        pattern = re.compile('%s{{.+\\[(.+?)\\].+}}' % re.escape(prefix), re.MULTILINE)
         items = set(re.findall(pattern, string))
         unmatched = None
 
@@ -655,7 +655,7 @@ def process_file(file):
     '''
     # Regex to find all comments that have something to do with ix
     # so we can remove them in the processed file
-    regex = re.compile('^{}.+[\s\S]$'.format(file.notation), re.MULTILINE)
+    regex = re.compile('^{}.+[\\s\\S]$'.format(file.notation), re.MULTILINE)
     processed = file.parse()
 
     for line in re.findall(regex, processed):
