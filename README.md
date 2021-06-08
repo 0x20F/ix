@@ -1,5 +1,5 @@
 <p align="center">
-    <img alt="ix-image" src="/.github/images/header.png"/>
+    <img alt="ix-image" src="/.github/images/header.png" width="300"/>
 </p>
 <h1 align="center">ix</h1>
 
