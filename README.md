@@ -1,3 +1,6 @@
+<p align="center">
+    <img alt="ix-image" src="/.github/images/header.png"/>
+</p>
 <h1 align="center">ix</h1>
 
 <p align="center">(eeks) Simple dotfile pre-processor with a per-file configuration</p>
@@ -14,7 +17,7 @@
 - variables to be processed are defined as follows `#{{ section.variable }}`.
 - default config directory `~/.config/ix/ixrc` (overwrite with `-c`)
 - default parse directory `~/dots` (overwrite with `-d`)
-- full docs [here](https://github.com/0x20F/ix/wiki/Documentation)
+- full docs [here](https://github.com/0x20F/ix/wiki)
 
 
 <br><br>
