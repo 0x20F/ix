@@ -232,6 +232,42 @@ class Parser:
                     ix_files.append(file)
 
         return ix_files
+
+
+    
+    @staticmethod
+    def process_file(file):
+        '''
+        Go through the given file's contents and make sure to replace
+        all the variables that have matches within the 'ixrc' configuration
+        as well as making sure to remove every trace of 'ix' itself from
+        the processed file, leaving it nice and clean, as well as making sure
+        to add the processed file, to the lock file so we don't have to process
+        it again unless it's contents change.
+
+        Parameters:
+            file (File): The file object to parse
+        '''
+        regex = re.compile('^{}.+[\\s\\S]$'.format(file.notation), re.MULTILINE)
+        processed = file.parse()
+
+        for line in re.findall(regex, processed):
+            processed = processed.replace(line, '')
+
+        try:
+            with open(file.get_output_path(), 'w') as f:
+                f.write(processed)
+                f.close()
+
+            if file.has_custom_access:
+                os.chmod(file.get_output_path(), file.access)
+
+            lock_file[file.original_path] = file.to_dict()
+        except FileNotFoundError:
+            error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path))
+            return
+
+        success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()))
         
 
 
@@ -273,7 +309,9 @@ class Helpers:
             with open(path) as f:
                 return f.read()
         
-        return process_file(file)
+        contents, _ = Parser.expand_ix_vars(file)
+
+        return contents
 
 
     @staticmethod
@@ -641,43 +679,6 @@ def save_lock_file(path, data):
 
 
 
-def process_file(file):
-    '''
-    Go through the given file's contents and make sure to replace
-    all the variables that have matches within the 'ixrc' configuration
-    as well as making sure to remove every trace of 'ix' itself from
-    the processed file, leaving it nice and clean, as well as making sure
-    to add the processed file to the lock file so we don't have to process
-    it again unless it's contents change.
-
-    Parameters:
-        file (File): The file object to parse
-    '''
-    # Regex to find all comments that have something to do with ix
-    # so we can remove them in the processed file
-    regex = re.compile('^{}.+[\\s\\S]$'.format(file.notation), re.MULTILINE)
-    processed = file.parse()
-
-    for line in re.findall(regex, processed):
-        processed = processed.replace(line, '')
-
-    try:
-        with open(file.get_output_path(), 'w') as f:
-            f.write(processed)
-            f.close()
-
-        if file.has_custom_access:
-            os.chmod(file.get_output_path(), file.access)
-
-        lock_file[file.original_path] = file.to_dict()
-    except FileNotFoundError:
-        error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path))
-        return
-
-    success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()))
-
-
-
 def main():
     '''
     The main entrypoint for the program.
@@ -709,7 +710,7 @@ def main():
                 unchanged += 1
                 continue
 
-        thread = threading.Thread(target=process_file, args=(file,))
+        thread = threading.Thread(target=Parser.process_file, args=(file,))
         threads.append(thread)
         thread.start()
 

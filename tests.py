@@ -122,7 +122,7 @@ class TestIxParsing(unittest.TestCase):
         self.assertEqual(file.access, int('777', 8))
         output_path = file.get_output_path()
 
-        ix.process_file(file)
+        Parser.process_file(file)
         self.assertTrue(os.access(output_path, os.X_OK))
 
 
