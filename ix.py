@@ -37,18 +37,53 @@ class Parser:
 
 
     @staticmethod
-    def replace_secondary_key(string, key):
+    def get_secondary_key_value(key):
         '''
-        Look through a given string for secondary variables.
-        ( Variables within ${{}} ) These are used to denote ix variables
-        within other ix variables when using helpers.
+        Unwrap whether or not a configuration value exists
+        for the given key.
+
+        Parameters:
+            key (str): The key to look for
+
+        Returns:
+            str: The value, or null
         '''
         value = Parser.get_config_key(key)
 
         if not value:
             return None
 
-        return string.replace('[' + key + ']', value)
+        return os.path.expandvars(value)
+
+
+    
+    @staticmethod
+    def get_main_key_value(key):
+        '''
+        Unwrap whether or not a configuration value exists
+        for the given key, as well as making sure to unravel
+        any helpers within the provided key.
+
+        Parameters:
+            key (str): The key to look for
+
+        Returns:
+            str: The value, or null
+        '''
+        stripped = key.strip()
+        value = None
+
+        # Check for helpers
+        if len(stripped.split(' ', 1)) > 1:
+            helper, parameters = stripped.split(' ', 1)
+            parameters = parameters.split(',')
+            value = Helpers.call(helper, parameters)
+        
+        else:
+            value = Parser.get_config_key(key)
+            if not value: return None
+
+        return os.path.expandvars(value)
 
 
 
@@ -72,14 +107,14 @@ class Parser:
         contents = string
 
         for key in items:
-            replaced = Parser.replace_secondary_key(contents, key)
+            value = Parser.get_secondary_key_value(key)
 
-            if not replaced:
+            if not value:
                 if not unmatched: unmatched = []
                 unmatched.append(f'[{key}]')
                 continue
 
-            contents = replaced
+            contents = contents.replace(f'[{ key }]', value)
 
         return ( contents, unmatched )
 
@@ -104,23 +139,15 @@ class Parser:
         contents = string
 
         for key in items:
-            resolved = None
             full_key = '{}{}{}{}'.format(prefix, sequence[0], key, sequence[1])
+            value = Parser.get_main_key_value(key)
 
-            # Check for helpers
-            if len(key.strip().split(' ', 1)) > 1:
-                helper, parameters = key.strip().split(' ', 1)
-                parameters = parameters.split(',')
-                resolved = Helpers.call(helper, parameters)
-            else:
-                resolved = Parser.get_config_key(key)
+            if not value:
+                if not unmatched: unmatched = []
+                unmatched.append(full_key)
+                continue
 
-                if not resolved:
-                    if not unmatched: unmatched = []
-                    unmatched.append(full_key)
-                    continue
-
-            contents = contents.replace(full_key, resolved)
+            contents = contents.replace(full_key, value)
 
         return (contents, unmatched)
 
@@ -288,6 +315,15 @@ class Helpers:
             return method(parameters)
         except Exception as e:
             return 'No such helper: ' + what
+
+
+    @staticmethod
+    def rgb(parameters):
+        '''
+        Take a hex string and convert it to 'rgb'.
+        Optionally, pass in opacity to make it 'rgba'.
+        '''
+        pass
 
 
     @staticmethod
