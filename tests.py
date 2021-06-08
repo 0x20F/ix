@@ -11,15 +11,17 @@ class TestIxParsing(unittest.TestCase):
 
     def test_find_ix(self):
         import ix
+        from ix import Parser
 
         ix.root_path = test_directory
 
-        files = ix.find_ix(test_directory + '/simple')
+        files = Parser.find_ix(test_directory + '/simple')
         self.assertEqual(len(files), 1)
 
 
     def test_read_config(self):
         import ix
+        from ix import Parser
 
         ix.root_path = test_directory
 
@@ -35,11 +37,12 @@ class TestIxParsing(unittest.TestCase):
             3. Does replace variables that are included with the new prefix
         '''
         import ix
+        from ix import Parser
 
         ix.root_path = test_directory
         ix.config = ix.read_config('./tests/with_prefix/ixrc')
 
-        files = ix.find_ix(test_directory + '/with_prefix')
+        files = Parser.find_ix(test_directory + '/with_prefix')
         file = files[0]
 
         self.assertEqual(file.prefix, '$')
@@ -64,11 +67,12 @@ class TestIxParsing(unittest.TestCase):
             3. When no name is specified, it will store the file under the same name
         '''
         import ix
+        from ix import Parser
 
         ix.root_path = test_directory
         ix.config = ix.read_config('./tests/no_as/ixrc')
 
-        files = ix.find_ix(test_directory + '/no_as')
+        files = Parser.find_ix(test_directory + '/no_as')
         file = files[0] # The only one
         
         self.assertTrue(file.get_output_path() != '')
@@ -87,11 +91,12 @@ class TestIxParsing(unittest.TestCase):
             2. That new filename gets appended to the directory of the file
         '''
         import ix
+        from ix import Parser
 
         ix.root_path = test_directory
         ix.config = ix.read_config('./tests/filename/ixrc')
 
-        files = ix.find_ix(test_directory + '/with_filename')
+        files = Parser.find_ix(test_directory + '/with_filename')
         file = files[0]
 
         name = file.name
@@ -107,10 +112,11 @@ class TestIxParsing(unittest.TestCase):
         permissions
         '''
         import ix
+        from ix import Parser
 
         ix.root_path = test_directory
 
-        files = ix.find_ix(test_directory + '/with_access')
+        files = Parser.find_ix(test_directory + '/with_access')
         file = files[0]
 
         self.assertEqual(file.access, int('777', 8))
@@ -127,11 +133,12 @@ class TestIxParsing(unittest.TestCase):
         as to not overwrite anything in the current one.
         '''
         import ix
+        from ix import Parser
 
         ix.root_path = test_directory
         ix.config = ix.read_config('./tests/no_to/ixrc')
 
-        files = ix.find_ix(test_directory + '/no_to')
+        files = Parser.find_ix(test_directory + '/no_to')
         file = files[0]
 
         print(file.name)
@@ -145,11 +152,12 @@ class TestIxParsing(unittest.TestCase):
         entire file.
         '''
         import ix
+        from ix import Parser
 
         ix.root_path = test_directory
         ix.config = ix.read_config('./tests/with_variables/ixrc')
 
-        files = ix.find_ix(test_directory + '/with_variables')
+        files = Parser.find_ix(test_directory + '/with_variables')
         file = files[0]
 
         # Check that there are variables within the file
@@ -167,11 +175,12 @@ class TestIxParsing(unittest.TestCase):
 
     def test_helper_file_inclusion(self):
         import ix
+        from ix import Parser
 
         ix.root_path = test_directory + '/helpers_inclusion'
         ix.config = ix.read_config(ix.root_path + '/ixrc')
 
-        file = ix.find_ix(ix.root_path).pop()
+        file = Parser.find_ix(ix.root_path).pop()
         parsed = file.parse()
 
         self.assertTrue('UNIQUE{ TEMPLATE_CONTENT }' in parsed)
@@ -179,11 +188,12 @@ class TestIxParsing(unittest.TestCase):
 
     def test_helper_casing(self):
         import ix
+        from ix import Parser
 
         ix.root_path = test_directory + '/helpers_casing'
         ix.config = ix.read_config(ix.root_path + '/ixrc')
 
-        file = ix.find_ix(ix.root_path).pop()
+        file = Parser.find_ix(ix.root_path).pop()
         parsed = file.parse()
 
         self.assertTrue('UPPERCASE' in parsed)

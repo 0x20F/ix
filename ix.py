@@ -21,6 +21,220 @@ MAGENTA = '\x1B[35;1m'
 #  | (__| | (_| \__ \__ \  __/\__ \
 #   \___|_|\__,_|___/___/\___||___/
 # -------------------------------------------------------------------------
+class Parser:
+    @staticmethod
+    def get_config_key(key):
+        '''
+        Given a key of the format 'key.value', find out what the
+        value for the variable of that format is within the ix config
+        '''
+        try: 
+            k, v = key.strip().split('.', 1)
+            return config[k][v]
+        except:
+            return None
+
+
+
+    @staticmethod
+    def replace_secondary_key(string, key):
+        '''
+        Look through a given string for secondary variables.
+        ( Variables within ${{}} ) These are used to denote ix variables
+        within other ix variables when using helpers.
+        '''
+        value = Parser.get_config_key(key)
+
+        if not value:
+            return None
+
+        return string.replace('[' + key + ']', value)
+
+
+
+    @staticmethod
+    def parse_secondary_keys(string, prefix):
+        '''
+        Find secondary variables within a file ( these are variables within main variables ),
+        denoted by '[]', and look whether or not they have a defined value inside the configuration
+        file.
+
+        If they do, replace the variable with the value from the configuration.
+
+        Parameters:
+            string (str): The data we want to look through for variables
+            prefix (str): What prefix the parent variables are denoted by
+        '''
+        pattern = re.compile('%s{{.+\[(.+?)\].+}}' % re.escape(prefix), re.MULTILINE)
+        items = set(re.findall(pattern, string))
+        unmatched = None
+
+        contents = string
+
+        for key in items:
+            replaced = Parser.replace_secondary_key(contents, key)
+
+            if not replaced:
+                if not unmatched: unmatched = []
+                unmatched.append(f'[{key}]')
+                continue
+
+            contents = replaced
+
+        return ( contents, unmatched )
+
+
+
+    @staticmethod
+    def parse_main_keys(string, prefix):
+        '''
+        Find main variables within a file ( something like ${{}} ) and look
+        whether or not they have a defined value inside the configuration file.
+
+        If they do, repalce the variable with the value from the configuration.
+
+        Parameters:
+            string (str): The data we want to look through for variables
+            prefix (str): What prefix the variables are denoted by
+        '''
+        pattern = re.compile('%s{{(.+?)}}' % re.escape(prefix), re.MULTILINE)
+        items = set(re.findall(pattern, string))
+        unmatched = None
+
+        contents = string
+
+        for key in items:
+            resolved = None
+            full_key = '{}{}{}{}'.format(prefix, sequence[0], key, sequence[1])
+
+            # Check for helpers
+            if len(key.strip().split(' ', 1)) > 1:
+                helper, parameters = key.strip().split(' ', 1)
+                parameters = parameters.split(',')
+                resolved = Helpers.call(helper, parameters)
+            else:
+                resolved = Parser.get_config_key(key)
+
+                if not resolved:
+                    if not unmatched: unmatched = []
+                    unmatched.append(full_key)
+                    continue
+
+            contents = contents.replace(full_key, resolved)
+
+        return (contents, unmatched)
+
+
+
+    @staticmethod
+    def expand_ix_vars(string, prefix):
+        '''
+        Look through a given string of data in a file and find every
+        variable starting with the prefix defined for that specific file.
+
+        Replace all thos variables with their related values inside the
+        configuration file.
+
+        Parameters:
+            string (str): The string contents in which to look for variables
+            prefix (str): The prefix used for including the variables in the given string
+
+        Returns:
+            contents (str): The original content with all the variables replaced
+            unmatched (list): The keys for all the variables that couldn't be matched within the string
+        '''
+        contents, unmatched_secondary = Parser.parse_secondary_keys(string, prefix)
+        contents, unmatched_main = Parser.parse_main_keys(contents, prefix)
+
+        if not unmatched_secondary: unmatched_secondary = []
+        if not unmatched_main: unmatched_main = []
+
+        unmatched = unmatched_main + unmatched_secondary
+
+        return (contents, unmatched)
+
+
+
+    @staticmethod
+    def wrap_file(file_path):
+        '''
+        Wrap a file and its contents in the custom File class
+        to allow for easier handling.
+
+        This finds whether or not a file is ix compatible, what
+        comment type it uses, and makes sure to setup all the ix
+        configuration found within the file.
+
+        Parameters:
+            file_path (str): The path to the file we want to wrap
+        '''
+        root, name = file_path.rsplit('/', 1)
+
+        file = get_file_lines(file_path)
+        if not file:
+            return None
+
+        lines = list(file)
+        found = False
+        current = None
+
+        # Check the first few lines of the file for the trigger.
+        # If the trigger isn't found, assume this file shouldn't
+        # be processed.
+        for idx, line in enumerate(lines):
+            for entry in entries:
+                start = '{}{}'.format(entry, notation)
+
+                if line.startswith(start):
+                    if trigger in line:
+                        found = True
+                        current = File(root, name, start)
+                        continue
+
+                    if not found:
+                        continue
+
+                    clean = line.replace(start, '').strip()
+
+                    if clean.startswith(tuple(current.fields)):
+                        current.load_field(clean)
+                        continue
+
+            if idx == 20 and not found:
+                return None
+
+        return current
+
+
+    
+    @staticmethod
+    def find_ix(root):
+        '''
+        Find all files that contain the 'ix' trigger so we know what 
+        needs parsing.
+
+        Parameters:
+            root (str): The directory to look into for files
+
+        Returns:
+            list: All the files in the directory that contain the trigger
+        '''
+        ix_files = []
+
+        for root, _, files in os.walk(root):
+            for name in files:
+                if name.endswith('.ix'): continue
+
+                full_path = root + '/' + name
+                file = Parser.wrap_file(full_path)
+
+                if file:
+                    ix_files.append(file)
+
+        return ix_files
+        
+
+
 class Helpers:
     '''
     List of all the helpers that can be used within files when
@@ -28,23 +242,20 @@ class Helpers:
 
     Helpers can only be used within main variables, aka. '${{ thing.thing }}'
     '''
-    def __init__(self) -> None:
-        self.helpers = {
-            'include': self.__include,
-            'uppercase': self.__uppercase,
-            'lowercase': self.__lowercase
-        }
-
-
-    def call(self, what, parameters):
+    @staticmethod
+    def call(what, parameters):
         '''
         Call a specific helper, if defined
         '''
-        parse = self.helpers.get(what, lambda: 'No such helper: ' + what)
-        return parse(parameters)
+        try:
+            method = getattr(Helpers, what)
+            return method(parameters)
+        except Exception as e:
+            return 'No such helper: ' + what
 
 
-    def __include(self, parameters):
+    @staticmethod
+    def include(parameters):
         '''
         Include a given file directly into the current file.
         This allows you to import/merge multiple files into one.
@@ -55,7 +266,7 @@ class Helpers:
         Environment variables work, as well as ix variables.
         '''
         path = os.path.expandvars(parameters[0])
-        file = wrap_file(path)
+        file = Parser.wrap_file(path)
         
         # If it's not an ix file just read the contents
         if not file:
@@ -65,7 +276,8 @@ class Helpers:
         return process_file(file)
 
 
-    def __uppercase(self, parameters):
+    @staticmethod
+    def uppercase(parameters):
         '''
         Turn a given string to uppercase.
 
@@ -75,7 +287,8 @@ class Helpers:
         return string.upper()
 
 
-    def __lowercase(self, parameters):
+    @staticmethod
+    def lowercase(parameters):
         '''
         Turn a given string to lowercase.
 
@@ -97,7 +310,6 @@ class File:
         self.name = name
         self.notation = notation
         self.hash = ''
-        self.helpers = Helpers()
 
         # Flags
         self.has_custom_dir = False
@@ -148,6 +360,23 @@ class File:
         # we write to that directory, with whatever the current
         # name is.
         return self.to + '/' + self.name + extension
+    
+
+
+    def load_field(self, field):
+        '''
+        Parse a given 'ix' configuration field. Usually comes in the following
+        format `out: /path/to/whatever`. Find out what item this configuration
+        field refers to and run the expected actions for said item.
+
+        Parameters:
+            self (File): The current file object
+            field (str): The field line directly from a file, with the comment stripped
+        '''
+        field, data = field.split(':', 1)
+
+        parse = self.fields.get(field, lambda: 'No such field: ' + field)
+        parse(data.strip())
 
 
 
@@ -165,7 +394,7 @@ class File:
             data (str): The new output directory
         '''
         expanded = os.path.expandvars(data)
-        expanded = self.expand_ix_vars(expanded)
+        expanded = self.__unwrap_parse(Parser.expand_ix_vars(expanded, self.prefix))
 
         # If the given directory does not exist
         # we want to create it.
@@ -190,7 +419,7 @@ class File:
             data (str): The new file name + extension (if any)
         '''
         self.has_custom_name = True
-        self.name = self.expand_ix_vars(data)
+        self.name = self.__unwrap_parse(Parser.expand_ix_vars(data, self.prefix))
 
 
 
@@ -204,7 +433,8 @@ class File:
             self (File): The current file object
             data (str): The new prefix
         '''
-        self.prefix = self.expand_ix_vars(data)
+        expanded = self.__unwrap_parse(Parser.expand_ix_vars(data, self.prefix))
+        self.prefix = expanded
 
 
 
@@ -222,7 +452,27 @@ class File:
         '''
         self.has_custom_access = True
         # Turn the perms to octal since chmod only accepts that
-        self.access = int(self.expand_ix_vars(data), 8)
+        expanded = self.__unwrap_parse(Parser.expand_ix_vars(data, self.prefix))
+        self.access = int(expanded, 8)
+
+
+
+    def __unwrap_parse(self, parsed):
+        '''
+        Spread the tuple returned from an expansion of ix variables and making
+        sure to display a message if some variables were not found.
+
+        Parameters:
+            self (File): The current instance
+            parsed (tuple): (parsed contents, unmatched variables)
+        '''
+        contents, unmatched = parsed
+
+        if unmatched:
+            variables = '\n\t'.join(unmatched)
+            warn(f'Could not find\n\t{ variables }\n in { self.original_path }\n')
+
+        return contents
 
 
 
@@ -277,23 +527,6 @@ class File:
         self.hash = digest
         
         return digest
-    
-
-
-    def parse_field(self, field):
-        '''
-        Parse a given 'ix' configuration field. Usually comes in the following
-        format `out: /path/to/whatever`. Find out what item this configuration
-        field refers to and run the expected actions for said item.
-
-        Parameters:
-            self (File): The current file object
-            field (str): The field line directly from a file, with the comment stripped
-        '''
-        field, data = field.split(':', 1)
-
-        parse = self.fields.get(field, lambda: 'No such field: ' + field)
-        parse(data.strip())
 
 
 
@@ -306,73 +539,11 @@ class File:
             self (File): The current file obejct
         '''
         file = open(self.original_path)
-        parsed = self.expand_ix_vars(file.read())
-
+        contents = self.__unwrap_parse(Parser.expand_ix_vars(file.read(), self.prefix))
         file.close()
-        return parsed
-
-
-
-    def expand_ix_vars(self, string):
-        '''
-        Look through a given string of data in a file and find every
-        variable starting with the prefix defined for that specific file.
-
-        Replace all those variables with their related values inside the
-        configuration file.
-
-        Parameters:
-            self (File): The current file object
-            string (str): The string contents in which to look for variables
-
-        Returns:
-            contents (str): The original content with all the variables replaced
-        '''
-        
-        # For smaller variables within the helpers e.g ${{ include [ this_one ] }}
-        secondary_pattern = re.compile('%s{{.+\[(.+?)\].+}}' % re.escape(self.prefix), re.MULTILINE)
-        secondary_items = set(re.findall(secondary_pattern, string))
-
-        contents = string
-    
-        for key in secondary_items:
-            replaced = replace_secondary_value(contents, key)
-
-            if not replaced:
-                message = 'Did not find any items with the name [{}] in the configuration.\n\tUsed in file: {}\n'
-                warn(message.format(key, self.original_path))
-                continue
-                
-            contents = replaced
-
-
-        # For main variables that can contain helpers e.g ${{ include a/b/c }}
-        main_pattern = re.compile('%s{{(.+?)}}' % re.escape(self.prefix), re.MULTILINE)
-        main_items = set(re.findall(main_pattern, contents))        
-        
-        for key in main_items:
-            helper = ''
-            parameters = ''
-            resolved = None
-            full_key = '{}{}{}{}'.format(self.prefix, sequence[0], key, sequence[1])
-
-            if len(key.strip().split(' ')) > 1:
-                helper, parameters = key.strip().split(' ', 1)
-
-                parameters = parameters.split(',')
-                resolved = self.helpers.call(helper, parameters)
-            else:
-                resolved = resolve_config_key(key)
-
-                if not resolved:
-                    message = 'Did not find any items with the name {} in the configuration.\n\tUsed in file: {}\n'
-                    warn(message.format(full_key, self.original_path))
-                    continue
-
-            contents = contents.replace(full_key, resolved)
-            
 
         return contents
+
 
 
 #    __                  _   _
@@ -386,34 +557,6 @@ def error(message):     print(RED + '✖', message, RESET)
 def warn(message):      print(YELLOW + '⚠' + WHITE, message, RESET)
 def success(message):   print(GREEN + '✔' + WHITE, message, RESET)
 def log(message):       print(MAGENTA + '~' + WHITE, message, RESET)
-
-
-
-def replace_secondary_value(string, key):
-    '''
-    Look through a given string for secondary values.
-    Variables within ${{  }}. These are used to denote ix variables
-    within other variables when using helpers.
-    '''
-    try:
-        value = resolve_config_key(key)
-        string = string.replace('[' + key + ']', value)
-        return string
-    except:
-        return None
-
-
-
-def resolve_config_key(key):
-    '''
-    Given a key of the format 'key.value', find out what the
-    value for the variable of that format is within the ix config.
-    '''
-    try:
-        k, v = key.strip().split('.', 1)
-        return config[k][v]
-    except:
-        return None
 
 
 
@@ -437,84 +580,6 @@ def get_file_lines(file_path):
     except:
         info('Found non-text file, ignoring: ' + file_path)
         return None
-
-
-
-def wrap_file(file_path):
-    '''
-    Wrap a file and its contents with the custom File class
-    to allow for easier handling. 
-
-    This finds whether or not a file is ix compatible, what 
-    comment type it uses, and makes sure to setup all the ix
-    configuration found within the file.
-    '''
-    root, name = file_path.rsplit('/', 1)
-
-    file = get_file_lines(file_path)
-    if not file:
-        return None
-
-    lines = list(file)
-    found = False
-    current = None
-
-    # Check the first few lines of the file for the
-    # trigger otherwise assume this file is not to be 
-    # processed.
-    for i, line in enumerate(lines):
-        for entry in entries:
-            start = "{}{}".format(entry, notation)
-            
-            if line.startswith(start):
-                if trigger in line:
-                    found = True
-                    current = File(root, name, start)
-                    continue
-
-                if not found:
-                    continue
-
-                clean = line.replace(start, '').strip()
-
-                if clean.startswith(tuple(current.fields)):
-                    current.parse_field(clean)
-                    continue
-
-        if i == 20 and not found:
-            return None
-
-    return current
-
-
-
-def find_ix(root):
-    '''
-    Find all files that contain the 'ix' trigger so we know what 
-    needs parsing.
-
-    Parameters:
-        root (str): The directory we're currently in
-        files (list): The list of files in the directory we're in
-
-    Returns:
-        list: All the files in the directory that contain the trigger
-    '''
-
-    ix_files = []
-
-    for root, _, files in os.walk(root):
-        for name in files:
-            if name.endswith('.ix'):
-                continue
-
-            full_path = root + '/' + name
-            file = wrap_file(full_path)
-            
-            if file:
-                ix_files.append(file)
-
-    return ix_files
 
 
 
@@ -623,7 +688,7 @@ def main():
     '''
     threads = list()
 
-    files = find_ix(root_path)
+    files = Parser.find_ix(root_path)
     unchanged = 0
     saved = 0
 
