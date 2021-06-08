@@ -267,6 +267,20 @@ class TestIxParsing(unittest.TestCase):
         self.assertTrue('#f2f2f266' in parsed)
 
 
+    def test_helper_variable_format(self):
+        import ix
+        from ix import Parser
+
+        ix.root_path = test_directory + '/helpers'
+        ix.config = ix.read_config(ix.root_path + '/ixrc')
+
+        file = Parser.find_ix(ix.root_path).pop()
+        parsed = file.parse()
+
+        self.assertTrue('COOLVALUE' in parsed)
+        self.assertTrue('coolvalue' in parsed)
+
+
 if __name__ == '__main__':
     # Windows handles colors weirdly by default
     if os.name == 'nt':
