@@ -21,13 +21,433 @@ MAGENTA = '\x1B[35;1m'
 #  | (__| | (_| \__ \__ \  __/\__ \
 #   \___|_|\__,_|___/___/\___||___/
 # -------------------------------------------------------------------------
+class Parser:
+    @staticmethod
+    def get_config_key(key):
+        '''
+        Given a key of the format 'key.value', find out what the
+        value for the variable of that format is within the ix config
+        '''
+        try: 
+            k, v = key.strip().split('.', 1)
+            return config[k][v]
+        except:
+            return None
+
+
+
+    @staticmethod
+    def get_secondary_key_value(key):
+        '''
+        Unwrap whether or not a configuration value exists
+        for the given key.
+
+        Parameters:
+            key (str): The key to look for
+
+        Returns:
+            str: The value, or null
+        '''
+        value = Parser.get_config_key(key)
+
+        if not value:
+            return None
+
+        return os.path.expandvars(value)
+
+
+    
+    @staticmethod
+    def get_main_key_value(key):
+        '''
+        Unwrap whether or not a configuration value exists
+        for the given key, as well as making sure to unravel
+        any helpers within the provided key.
+
+        Parameters:
+            key (str): The key to look for
+
+        Returns:
+            str: The value, or null
+        '''
+        stripped = key.strip()
+        value = None
+
+        # Check for helpers
+        if len(stripped.split(' ', 1)) > 1:
+            helper, parameters = stripped.split(' ', 1)
+            parameters = [ param.strip() for param in parameters.split(';') ]
+            parameters = [ Parser.get_config_key(param) or param for param in parameters ]
+            value = Helpers.call(helper, parameters)
+        
+        else:
+            value = Parser.get_config_key(key)
+            if not value: return None
+
+        return os.path.expandvars(value)
+
+
+
+    @staticmethod
+    def parse_secondary_keys(string, prefix):
+        '''
+        Find secondary variables within a file ( these are variables within main variables ),
+        denoted by '[]', and look whether or not they have a defined value inside the configuration
+        file.
+
+        If they do, replace the variable with the value from the configuration.
+
+        Parameters:
+            string (str): The data we want to look through for variables
+            prefix (str): What prefix the parent variables are denoted by
+        '''
+        pattern = re.compile('%s{{.+\\[(.+?)\\].+}}' % re.escape(prefix), re.MULTILINE)
+        items = set(re.findall(pattern, string))
+        unmatched = None
+
+        contents = string
+
+        for key in items:
+            value = Parser.get_secondary_key_value(key)
+
+            if not value:
+                if not unmatched: unmatched = []
+                unmatched.append(f'[{key}]')
+                continue
+
+            contents = contents.replace(f'[{ key }]', value)
+
+        return ( contents, unmatched )
+
+
+
+    @staticmethod
+    def parse_main_keys(string, prefix):
+        '''
+        Find main variables within a file ( something like ${{}} ) and look
+        whether or not they have a defined value inside the configuration file.
+
+        If they do, repalce the variable with the value from the configuration.
+
+        Parameters:
+            string (str): The data we want to look through for variables
+            prefix (str): What prefix the variables are denoted by
+        '''
+        pattern = re.compile('%s{{(.+?)}}' % re.escape(prefix), re.MULTILINE)
+        items = set(re.findall(pattern, string))
+        unmatched = None
+
+        contents = string
+
+        for key in items:
+            full_key = '{}{}{}{}'.format(prefix, sequence[0], key, sequence[1])
+            value = Parser.get_main_key_value(key)
+
+            if not value:
+                if not unmatched: unmatched = []
+                unmatched.append(full_key)
+                continue
+
+            contents = contents.replace(full_key, value)
+
+        return (contents, unmatched)
+
+
+
+    @staticmethod
+    def expand_ix_vars(string, prefix):
+        '''
+        Look through a given string of data in a file and find every
+        variable starting with the prefix defined for that specific file.
+
+        Replace all thos variables with their related values inside the
+        configuration file.
+
+        Parameters:
+            string (str): The string contents in which to look for variables
+            prefix (str): The prefix used for including the variables in the given string
+
+        Returns:
+            contents (str): The original content with all the variables replaced
+            unmatched (list): The keys for all the variables that couldn't be matched within the string
+        '''
+        contents, unmatched_secondary = Parser.parse_secondary_keys(string, prefix)
+        contents, unmatched_main = Parser.parse_main_keys(contents, prefix)
+
+        if not unmatched_secondary: unmatched_secondary = []
+        if not unmatched_main: unmatched_main = []
+
+        unmatched = unmatched_main + unmatched_secondary
+
+        return (contents, unmatched)
+
+
+
+    @staticmethod
+    def wrap_file(file_path):
+        '''
+        Wrap a file and its contents in the custom File class
+        to allow for easier handling.
+
+        This finds whether or not a file is ix compatible, what
+        comment type it uses, and makes sure to setup all the ix
+        configuration found within the file.
+
+        Parameters:
+            file_path (str): The path to the file we want to wrap
+        '''
+        root, name = file_path.rsplit('/', 1)
+
+        file = get_file_lines(file_path)
+        if not file:
+            return None
+
+        lines = list(file)
+        found = False
+        current = None
+
+        # Check the first few lines of the file for the trigger.
+        # If the trigger isn't found, assume this file shouldn't
+        # be processed.
+        for idx, line in enumerate(lines):
+            for entry in entries:
+                start = '{}{}'.format(entry, notation)
+
+                if line.startswith(start):
+                    if trigger in line:
+                        found = True
+                        current = File(root, name, start)
+                        continue
+
+                    if not found:
+                        continue
+
+                    clean = line.replace(start, '').strip()
+
+                    if clean.startswith(tuple(current.fields)):
+                        current.load_field(clean)
+                        continue
+
+            if idx == 20 and not found:
+                return None
+
+        return current
+
+
+    
+    @staticmethod
+    def find_ix(root):
+        '''
+        Find all files that contain the 'ix' trigger so we know what 
+        needs parsing.
+
+        Parameters:
+            root (str): The directory to look into for files
+
+        Returns:
+            list: All the files in the directory that contain the trigger
+        '''
+        ix_files = []
+
+        for root, _, files in os.walk(root):
+            for name in files:
+                if name.endswith('.ix'): continue
+
+                full_path = root + '/' + name
+                file = Parser.wrap_file(full_path)
+
+                if file:
+                    ix_files.append(file)
+
+        return ix_files
+
+
+    
+    @staticmethod
+    def process_file(file):
+        '''
+        Go through the given file's contents and make sure to replace
+        all the variables that have matches within the 'ixrc' configuration
+        as well as making sure to remove every trace of 'ix' itself from
+        the processed file, leaving it nice and clean, as well as making sure
+        to add the processed file, to the lock file so we don't have to process
+        it again unless it's contents change.
+
+        Parameters:
+            file (File): The file object to parse
+        '''
+        regex = re.compile('^{}.+[\\s\\S]$'.format(file.notation), re.MULTILINE)
+        processed = file.parse()
+
+        for line in re.findall(regex, processed):
+            processed = processed.replace(line, '')
+
+        try:
+            with open(file.get_output_path(), 'w') as f:
+                f.write(processed)
+                f.close()
+
+            if file.has_custom_access:
+                os.chmod(file.get_output_path(), file.access)
+
+            lock_file[file.original_path] = file.to_dict()
+        except FileNotFoundError:
+            error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path))
+            return
+
+        success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()))
+        
+
+
+class Helpers:
+    '''
+    List of all the helpers that can be used within files when
+    including variables and/or templating
+
+    Helpers can only be used within main variables, aka. '${{ thing.thing }}'
+    '''
+    @staticmethod
+    def call(what, parameters):
+        '''
+        Call a specific helper, if defined
+        '''
+        try:
+            method = getattr(Helpers, what)
+            return method(*parameters)
+        except Exception as e:
+            error(f'{e!r} ---- helper: {what}')
+            return ''
+
+
+    @staticmethod
+    def rgb(value, opacity = None):
+        '''
+        Take a hex string ( #181b21 ) and convert it to 'rgb'.
+        If an rgb or rgba string is provided, if the opacity isn't 
+        overwritten, it'll just return the string that was passed in.
+        If the opacity is overwritten, however, it'll replace the alpha
+        field within the given string.
+
+        Optionally, pass in opacity to override or add the alpha channel.
+        '''
+        # We got an rgb value
+        if not value.startswith('#'):
+            # Give it back as it is if no overrides are specified
+            if not opacity: return value
+
+            values = [ x.strip() for x in value.split('(', 1).pop().rstrip(')').split(',') ]
+            
+            r = values[0]
+            g = values[1]
+            b = values[2]
+            a = opacity
+
+            return f'rgba({r}, {g}, {b}, {a})'
+
+
+        string = value.lstrip('#')
+        r, g, b = tuple(int(string[i:i+2], 16) for i in (0, 2, 4))
+        a = ''
+
+        if len(string) == 8:
+            a = round(int(string[6:6+2], 16) / 255, 2)
+
+        if opacity:
+            a = opacity
+
+        if a != '': tag = f'rgba({r}, {g}, {b}, {a})'
+        else:       tag = f'rgb({r}, {g}, {b})'
+
+        return tag
+
+
+    @staticmethod
+    def hex(value, opacity = None):
+        '''
+        Take an rgb/rgba string and convert it to a hex representation
+        of the same color. If a hex string is provided, it'll return the exact
+        same hex string unless the opacity is overwritten. If it is, it'll
+        replace the alpha field within the given string.
+
+        Optionally pass in opacity to override or add the alpha channel.
+        '''
+        if opacity:
+            opacity = hex(round(float(opacity) * 255))[2:]
+        
+        # We got a hex string
+        if value.startswith('#'):
+            # Give it back as it is if no overrides are specified
+            if not opacity: return value
+
+            value = value[0:7]
+            return f'{value}{opacity}'
+            
+        alpha = value.startswith('rgba')
+        value = value.split('(', 1).pop().rstrip(')').split(',')
+
+        r = hex(int(value[0]))[2:]
+        g = hex(int(value[1]))[2:]
+        b = hex(int(value[2]))[2:]
+        a = hex(round(float(value[3]) * 255))[2:] if alpha else ''
+
+        if opacity:
+            a = opacity
+
+        return f'#{r}{g}{b}{a}'
+
+
+    @staticmethod
+    def include(path):
+        '''
+        Include a given file directly into the current file.
+        This allows you to import/merge multiple files into one.
+
+        If the file you're importing is an ix compatible file,
+        it will be parsed, otherwise the plain text will be included.
+
+        Environment variables work, as well as ix variables.
+        '''
+        path = os.path.expandvars(path)
+        file = Parser.wrap_file(path)
+        
+        # If it's not an ix file just read the contents
+        if not file:
+            with open(path) as f:
+                return f.read()
+        
+        contents, _ = Parser.expand_ix_vars(file)
+
+        return contents
+
+
+    @staticmethod
+    def uppercase(string):
+        '''
+        Turn a given string to uppercase.
+
+        Environment variables work, as well as ix variables.
+        '''
+        return string.upper()
+
+
+    @staticmethod
+    def lowercase(string):
+        '''
+        Turn a given string to lowercase.
+
+        Environment variables work, as well as ix variables.
+        '''
+        return string.lower()
+
+
+
 class File:
     '''
     Structured class to keep track of everything about each
     file that needs parsing. Such as the comment type,
     the paths, the ix-configuration, and so on.
     '''
-    def __init__(self, root, name, notation) -> None:
+    def __init__(self, root, name, notation = '#') -> None:
         self.original_path = root + '/' + name
         self.name = name
         self.notation = notation
@@ -53,7 +473,7 @@ class File:
             'prefix': self.__set_prefix,
 
             'access': self.__set_access
-        }    
+        }
 
 
 
@@ -82,6 +502,23 @@ class File:
         # we write to that directory, with whatever the current
         # name is.
         return self.to + '/' + self.name + extension
+    
+
+
+    def load_field(self, field):
+        '''
+        Parse a given 'ix' configuration field. Usually comes in the following
+        format `out: /path/to/whatever`. Find out what item this configuration
+        field refers to and run the expected actions for said item.
+
+        Parameters:
+            self (File): The current file object
+            field (str): The field line directly from a file, with the comment stripped
+        '''
+        field, data = field.split(':', 1)
+
+        parse = self.fields.get(field, lambda: 'No such field: ' + field)
+        parse(data.strip())
 
 
 
@@ -99,7 +536,7 @@ class File:
             data (str): The new output directory
         '''
         expanded = os.path.expandvars(data)
-        expanded = self.expand_ix_vars(expanded)
+        expanded = self.__unwrap_parse(Parser.expand_ix_vars(expanded, self.prefix))
 
         # If the given directory does not exist
         # we want to create it.
@@ -124,7 +561,7 @@ class File:
             data (str): The new file name + extension (if any)
         '''
         self.has_custom_name = True
-        self.name = self.expand_ix_vars(data)
+        self.name = self.__unwrap_parse(Parser.expand_ix_vars(data, self.prefix))
 
 
 
@@ -138,7 +575,8 @@ class File:
             self (File): The current file object
             data (str): The new prefix
         '''
-        self.prefix = self.expand_ix_vars(data)
+        expanded = self.__unwrap_parse(Parser.expand_ix_vars(data, self.prefix))
+        self.prefix = expanded
 
 
 
@@ -156,7 +594,27 @@ class File:
         '''
         self.has_custom_access = True
         # Turn the perms to octal since chmod only accepts that
-        self.access = int(self.expand_ix_vars(data), 8)
+        expanded = self.__unwrap_parse(Parser.expand_ix_vars(data, self.prefix))
+        self.access = int(expanded, 8)
+
+
+
+    def __unwrap_parse(self, parsed):
+        '''
+        Spread the tuple returned from an expansion of ix variables and making
+        sure to display a message if some variables were not found.
+
+        Parameters:
+            self (File): The current instance
+            parsed (tuple): (parsed contents, unmatched variables)
+        '''
+        contents, unmatched = parsed
+
+        if unmatched:
+            variables = '\n\t'.join(unmatched)
+            warn(f'Could not find\n\t{ variables }\n in { self.original_path }\n')
+
+        return contents
 
 
 
@@ -211,23 +669,6 @@ class File:
         self.hash = digest
         
         return digest
-    
-
-
-    def parse_field(self, field):
-        '''
-        Parse a given 'ix' configuration field. Usually comes in the following
-        format `out: /path/to/whatever`. Find out what item this configuration
-        field refers to and run the expected actions for said item.
-
-        Parameters:
-            self (File): The current file object
-            field (str): The field line directly from a file, with the comment stripped
-        '''
-        field, data = field.split(':', 1)
-
-        parse = self.fields.get(field, lambda: 'No such field: ' + field)
-        parse(data.strip())
 
 
 
@@ -240,51 +681,11 @@ class File:
             self (File): The current file obejct
         '''
         file = open(self.original_path)
-        parsed = self.expand_ix_vars(file.read())
-
+        contents = self.__unwrap_parse(Parser.expand_ix_vars(file.read(), self.prefix))
         file.close()
-        return parsed
-
-
-
-    def expand_ix_vars(self, string):
-        '''
-        Look through a given string of data in a file and find every
-        variable starting with the prefix defined for that specific file.
-
-        Replace all those variables with their related values inside the
-        configuration file.
-
-        Parameters:
-            self (File): The current file object
-            string (str): The string contents in which to look for variables
-
-        Returns:
-            contents (str): The original content with all the variables replaced
-        '''
-        pattern = re.compile('%s{{(.+?)}}' % re.escape(self.prefix), re.MULTILINE)
-        items = re.findall(pattern, string)
-        items = set(items)
-
-        if len(items) == 0:
-            return string
-
-        contents = string
-
-        for key in items:
-            k, v = key.strip().split('.', 1)
-            full_key = '{}{}{}{}'.format(self.prefix, sequence[0], key, sequence[1])
-
-            try:
-                resolved = config[k][v]
-                
-                contents = contents.replace(full_key, resolved)
-            except:
-                message = 'Did not find any items with the name {} in the configuration.\n\tUsed in file: {}\n'
-                warn(message.format(full_key, self.original_path))
-                continue
 
         return contents
+
 
 
 #    __                  _   _
@@ -301,85 +702,26 @@ def log(message):       print(MAGENTA + '~' + WHITE, message, RESET)
 
 
 
-def find_ix(root):
+def get_file_lines(file_path):
     '''
-    Find all files that contain the 'ix' trigger so we know what 
-    needs parsing.
-
-    Parameters:
-        root (str): The directory we're currently in
-        files (list): The list of files in the directory we're in
-
-    Returns:
-        list: All the files in the directory that contain the trigger
+    Try and open a file as a normal text file.
+    If succeeded, return an array of all the lines 
+    inside that file.
     '''
+    try:
+        # Try and open the file as a normal text file
+        # Abort if it's binary or something else
+        file = open(file_path, 'r')
+        lines = list(file)
+        file.close()
 
-    ix_files = []
-
-    for root, _, files in os.walk(root):
-
-        for name in files:
-
-            if name.endswith('.ix'):
-                continue
-
-            full_path = root + '/' + name
-            file = None
-            current = None
-            found = False
-
-            # Try and open the file as a normal text file
-            # Abort if it's binary or something else
-            try:
-                file = open(full_path, 'r')        
-            except PermissionError:
-                info('No permission to access file, ignoring: ' + full_path)
-                continue
-            except:
-                info('Found non-text file, ignoring: ' + full_path)
-                continue
-
-            lines = []
-
-            # Try and read all the lines from the file
-            # Abort if characters can't be parsed
-            try:
-                lines = list(file)
-            except:
-                #print('Couldnt parse all characters in file: ' + full_path)
-                continue            
-            
-            # Check the first few lines of the file for the
-            # trigger otherwise assume this file is not to be 
-            # processed.
-            for i, line in enumerate(lines):
-                for entry in entries:
-                    start = "{}{}".format(entry, notation)
-                    
-                    if line.startswith(start):
-                        if trigger in line:
-                            found = True
-                            current = File(root, name, start)
-                            continue
-
-                        if not found:
-                            continue
-
-                        clean = line.replace(start, '').strip()
-
-                        if clean.startswith(tuple(current.fields)):
-                            current.parse_field(clean)
-                            continue
-
-                if i == 20 and not found:
-                    break
-            
-            if found:
-                ix_files.append(current)
-
-            file.close()
-
-    return ix_files
+        return lines
+    except PermissionError:
+        info('No permission to access file, ignoring: ' + file_path)
+        return None
+    except:
+        info('Found non-text file, ignoring: ' + file_path)
+        return None
 
 
 
@@ -412,8 +754,9 @@ def read_lock_file(path):
     '''
     try:
         file = open(path + '/ix.lock')
-
-        return json.loads(file.read())
+        contents = json.loads(file.read())
+        file.close()
+        return contents
     except FileNotFoundError:
         # Start fresh if the file doesn't exist
         return {}
@@ -440,43 +783,6 @@ def save_lock_file(path, data):
 
 
 
-def process_file(file):
-    '''
-    Go through the given file's contents and make sure to replace
-    all the variables that have matches within the 'ixrc' configuration
-    as well as making sure to remove every trace of 'ix' itself from
-    the processed file, leaving it nice and clean, as well as making sure
-    to add the processed file to the lock file so we don't have to process
-    it again unless it's contents change.
-
-    Parameters:
-        file (File): The file object to parse
-    '''
-    # Regex to find all comments that have something to do with ix
-    # so we can remove them in the processed file
-    regex = re.compile('^{}.+[\s\S]$'.format(file.notation), re.MULTILINE)
-    processed = file.parse()
-
-    for line in re.findall(regex, processed):
-        processed = processed.replace(line, '')
-
-    try:
-        with open(file.get_output_path(), 'w') as f:
-            f.write(processed)
-            f.close()
-
-        if file.has_custom_access:
-            os.chmod(file.get_output_path(), file.access)
-
-        lock_file[file.original_path] = file.to_dict()
-    except FileNotFoundError:
-        error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path))
-        return
-
-    success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()))
-
-
-
 def main():
     '''
     The main entrypoint for the program.
@@ -487,7 +793,7 @@ def main():
     '''
     threads = list()
 
-    files = find_ix(root_path)
+    files = Parser.find_ix(root_path)
     unchanged = 0
     saved = 0
 
@@ -508,7 +814,7 @@ def main():
                 unchanged += 1
                 continue
 
-        thread = threading.Thread(target=process_file, args=(file,))
+        thread = threading.Thread(target=Parser.process_file, args=(file,))
         threads.append(thread)
         thread.start()
 
@@ -546,12 +852,15 @@ sequence = [ '{{', '}}' ]
 root_path = os.path.expandvars('$HOME/dots')
 config_path = os.path.expandvars('$HOME/.config/ix/ixrc')
 lock_path = os.path.expandvars('$HOME/.cache/ix')
+lock_file = None
+config = None
 
 # Commandline arguments
 parser = argparse.ArgumentParser(description='Find and replace variables in files within a given directory')
 parser.add_argument('-c', '--config', help='The path where the .ix configuration is located. Default $HOME/.config/ix/ixrc')
 parser.add_argument('-d', '--directory', help='The directory to parse. Default $HOME/dots')
 parser.add_argument('-f', '--field', help='Get a specific field value from the config')
+parser.add_argument('--full', help='Skip looking at the cache and parse everything', action='store_false')
 
 args = parser.parse_args()
 
@@ -560,9 +869,9 @@ if args.config:
 
 if args.field:
     config = read_config(config_path)
-    section, variable = args.field.split('.')
-    print(os.path.expandvars(config[section][variable]))
-
+    contents = Parser.get_main_key_value(args.field)
+    print(contents)
+    
     # The whole thing doesn't need to run
     # if only one field is needed
     exit()
@@ -570,12 +879,16 @@ if args.field:
 if args.directory:
     root_path = args.directory
 
+# Load in the cache if not specified
+# otherwise.
+if not args.full:
+    lock_file = {}
+else:
+    lock_file = read_lock_file(lock_path)
+
 
 # Load in the config
 config = read_config(config_path)
-
-# Load in the cache
-lock_file = read_lock_file(lock_path)
 
 
 # Run
@@ -583,5 +896,8 @@ if __name__ == '__main__':
     # Windows handles colors weirdly by default
     if os.name == 'nt':
         os.system('color')
+
+    if not args.full:
+        info('Skipping cache, doing a full parse...')
 
     main()

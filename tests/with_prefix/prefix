@@ -9,6 +9,6 @@ that only the ones with the defined prefix get replaced.
 #{{ paths.users }}
 #{{ paths.users }}
 
-${{ paths.users }}
-${{ paths.users }}
-${{ paths.users }}
+${{ data.one }}
+${{ data.one }}
+${{ data.one }}

@@ -1,0 +1,10 @@
+#: ix-config
+
+Testing that variable inclusion works with [ ]
+and without when using helpers
+
+Square brackets are mostly advised when trying to interpolate
+a value within another value
+
+#{{ uppercase [ data.test ] }}
+#{{ lowercase data.test }}
