@@ -1,0 +1,6 @@
+[colors]
+black = #000000
+white = rgb(242, 242, 242)
+
+black-transparent = #0000004c
+white-transparent = rgba(242, 242, 242, 0.3)

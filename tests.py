@@ -221,6 +221,18 @@ class TestIxParsing(unittest.TestCase):
         # rgba from hexa
         self.assertTrue('rgba(24, 27, 33, 0.47' in parsed)
 
+        # rgb from variable
+        self.assertTrue('rgb(0, 0, 0)' in parsed)
+
+        # rgb from variable with opacity
+        self.assertTrue('rgba(0, 0, 0, 0.5)' in parsed)
+
+        # rgb from hex alpha variable
+        self.assertTrue('rgba(0, 0, 0, 0.3)' in parsed)
+
+        # rgb hex alpha variable override
+        self.assertTrue('rgba(0, 0, 0, 0.8)' in parsed)
+
         # hex
         self.assertTrue('#ffffff' in parsed)
 
@@ -229,6 +241,18 @@ class TestIxParsing(unittest.TestCase):
 
         # hex with alpha from rgba
         self.assertTrue('#ffffff4c' in parsed)
+
+        # hex from variable
+        self.assertTrue('#f2f2f2' in parsed)
+
+        # hex from variable with opacity
+        self.assertTrue('#f2f2f280' in parsed)
+
+        # hex from rgba variable
+        self.assertTrue('#f2f2f24c' in parsed)
+
+        # hex rgba variable override
+        self.assertTrue('#f2f2f266' in parsed)
 
 
 if __name__ == '__main__':
