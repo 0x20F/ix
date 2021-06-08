@@ -76,7 +76,7 @@ class Parser:
         # Check for helpers
         if len(stripped.split(' ', 1)) > 1:
             helper, parameters = stripped.split(' ', 1)
-            parameters = parameters.split(',')
+            parameters = [ param.strip() for param in parameters.split(';') ]
             value = Helpers.call(helper, parameters)
         
         else:
@@ -314,16 +314,56 @@ class Helpers:
             method = getattr(Helpers, what)
             return method(parameters)
         except Exception as e:
-            return 'No such helper: ' + what
+            error(f'{e!r} ---- helper: {what}')
+            return ''
 
 
     @staticmethod
     def rgb(parameters):
         '''
-        Take a hex string and convert it to 'rgb'.
-        Optionally, pass in opacity to make it 'rgba'.
+        Take a hex string ( #181b21 ) and convert it to 'rgb'.
+
+        Optionally, pass in opacity to override or add the alpha channel.
         '''
-        pass
+        string = parameters[0].lstrip('#')
+        r, g, b = tuple(int(string[i:i+2], 16) for i in (0, 2, 4))
+        a = ''
+
+        if len(string) == 8:
+            a = round(int(string[6:6+2], 16) / 255, 2)
+
+        if len(parameters) > 1:
+            opacity = parameters[1]
+            a = opacity
+
+        if a != '': tag = f'rgba({r}, {g}, {b}, {a})'
+        else:       tag = f'rgb({r}, {g}, {b})'
+
+        return tag
+
+
+    @staticmethod
+    def hex(parameters):
+        '''
+        Take an rgb/rgba string and convert it to a hex representation
+        of the same color.
+
+        Optionally pass in opacity to override or add the alpha channel.
+        '''
+        alpha = parameters[0].startswith('rgba')
+        string = parameters[0].split('(', 1).pop().rstrip(')').split(',')
+
+        r = hex(int(string[0]))[2:]
+        g = hex(int(string[1]))[2:]
+        b = hex(int(string[2]))[2:]
+        a = hex(round(float(string[3]) * 255))[2:] if alpha else ''
+
+        if len(parameters) > 1:
+            opacity = round(float(parameters[1]) * 255)
+            a = hex(opacity)[2:]
+
+        return f'#{r}{g}{b}{a}'
+
 
 
     @staticmethod

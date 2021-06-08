@@ -202,5 +202,38 @@ class TestIxParsing(unittest.TestCase):
         self.assertTrue('#[[' not in parsed)
 
 
+    def test_helper_colors(self):
+        import ix
+        from ix import Parser
+
+        ix.root_path = test_directory + '/helpers_colors'
+        ix.config = ix.read_config(ix.root_path + '/ixrc')
+
+        file = Parser.find_ix(ix.root_path).pop()
+        parsed = file.parse()
+
+        # rgb
+        self.assertTrue('rgb(24, 27, 33)' in parsed)
+
+        # rgba
+        self.assertTrue('rgba(24, 27, 33, 0.5)' in parsed)
+
+        # rgba from hexa
+        self.assertTrue('rgba(24, 27, 33, 0.47' in parsed)
+
+        # hex
+        self.assertTrue('#ffffff' in parsed)
+
+        # hex with alpha
+        self.assertTrue('#ffffffe6' in parsed)
+
+        # hex with alpha from rgba
+        self.assertTrue('#ffffff4c' in parsed)
+
+
 if __name__ == '__main__':
+    # Windows handles colors weirdly by default
+    if os.name == 'nt':
+        os.system('color')
+
     unittest.main()

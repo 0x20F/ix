@@ -1,0 +1,22 @@
+#: ix-config
+
+Testing out whether or not the color conversion
+helpers work as expected
+
+normal rgb
+#{{ rgb #181b21 }}
+
+rgb with custom opacity from user
+#{{ rgb #181b21; 0.5 }}
+
+rgb with custom opacity from hex
+#{{ rgb #181b2177 }}
+
+normal hex
+#{{ hex rgb(255, 255, 255) }}
+
+hex with custom opacity from user
+#{{ hex rgb(255, 255, 255); 0.9 }}
+
+hex with custom opacity from rgba
+#{{ hex rgba(255, 255, 255, 0.3) }}
