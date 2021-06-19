@@ -266,6 +266,12 @@ class TestIxParsing(unittest.TestCase):
         # hex rgba variable override
         self.assertTrue('#f2f2f266' in parsed)
 
+        # hex rgb to argb
+        self.assertTrue('#66f2f2f2' in parsed)
+
+        # hex rgba to argb
+        self.assertTrue('#66000000' in parsed)
+
 
     def test_helper_variable_format(self):
         import ix

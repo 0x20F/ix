@@ -61,3 +61,9 @@ hex from rgba variable
 
 hex rgba variable override
 #{{ hex [ colors.white-transparent ]; alpha: 0.4 }}
+
+hex rgb to argb
+#{{ hex [ colors.white-transparent ]; argb: true; alpha: 0.4 }}
+
+hex rgba to argb
+#{{ hex [ colors.black-transparent ]; argb: true; alpha: 0.4  }}

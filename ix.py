@@ -389,7 +389,7 @@ class Helpers:
 
 
     @staticmethod
-    def hex(value, alpha = None):
+    def hex(value, alpha = None, argb = None):
         '''
         Take an rgb/rgba string and convert it to a hex representation
         of the same color. If a hex string is provided, it'll return the exact
@@ -406,8 +406,12 @@ class Helpers:
             # Give it back as it is if no overrides are specified
             if not alpha: return value
 
-            value = value[0:7]
-            return f'{value}{alpha}'
+            value = value[1:7]
+
+            if argb:
+                return f'#{alpha}{value}'
+
+            return f'#{value}{alpha}'
             
         a = value.startswith('rgba')
         value = value.split('(', 1).pop().rstrip(')').split(',')
@@ -419,6 +423,9 @@ class Helpers:
 
         if alpha: a = alpha
 
+        if argb:
+            return f'#{a}{r}{g}{b}'
+            
         return f'#{r}{g}{b}{a}'
 
 
