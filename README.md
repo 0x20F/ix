@@ -3,7 +3,7 @@
 </p>
 <h1 align="center">ix</h1>
 
-<p align="center">(eeks) Simple dotfile pre-processor with a per-file configuration</p>
+<p align="center">(eeks) Simple dotfile pre-processor with a per-file configuration and no dependencies.</p>
 
 
 <br><br>

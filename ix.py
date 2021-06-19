@@ -4,6 +4,10 @@ from datetime import datetime
 
 
 
+# Global verbosity check
+# Get's changed by command line flag '-v'
+verbose = False
+
 
 # Colors
 RED     = '\x1B[31;1m'
@@ -28,7 +32,7 @@ class Parser:
         Given a key of the format 'key.value', find out what the
         value for the variable of that format is within the ix config
         '''
-        try: 
+        try:
             k, v = key.strip().split('.', 1)
             return config[k][v]
         except:
@@ -56,7 +60,7 @@ class Parser:
         return os.path.expandvars(value)
 
 
-    
+
     @staticmethod
     def get_main_key_value(key):
         '''
@@ -252,11 +256,11 @@ class Parser:
         return current
 
 
-    
+
     @staticmethod
     def find_ix(root):
         '''
-        Find all files that contain the 'ix' trigger so we know what 
+        Find all files that contain the 'ix' trigger so we know what
         needs parsing.
 
         Parameters:
@@ -280,7 +284,7 @@ class Parser:
         return ix_files
 
 
-    
+
     @staticmethod
     def process_file(file):
         '''
@@ -310,11 +314,11 @@ class Parser:
 
             lock_file[file.original_path] = file.to_dict()
         except FileNotFoundError:
-            error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path))
+            error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path), True)
             return
 
-        success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()))
-        
+        success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()), True)
+
 
 
 class Helpers:
@@ -346,7 +350,7 @@ class Helpers:
     def rgb(value, alpha = None):
         '''
         Take a hex string ( #181b21 ) and convert it to 'rgb'.
-        If an rgb or rgba string is provided, if the opacity isn't 
+        If an rgb or rgba string is provided, if the opacity isn't
         overwritten, it'll just return the string that was passed in.
         If the opacity is overwritten, however, it'll replace the alpha
         field within the given string.
@@ -359,7 +363,7 @@ class Helpers:
             if not alpha: return value
 
             values = [ x.strip() for x in value.split('(', 1).pop().rstrip(')').split(',') ]
-            
+
             r = values[0]
             g = values[1]
             b = values[2]
@@ -396,7 +400,7 @@ class Helpers:
         '''
         if alpha:
             alpha = hex(round(float(alpha) * 255))[2:]
-        
+            
         # We got a hex string
         if value.startswith('#'):
             # Give it back as it is if no overrides are specified
@@ -431,12 +435,12 @@ class Helpers:
         '''
         path = os.path.expandvars(path)
         file = Parser.wrap_file(path)
-        
+
         # If it's not an ix file just read the contents
         if not file:
             with open(path) as f:
                 return f.read()
-        
+
         contents, _ = Parser.expand_ix_vars(file)
 
         return contents
@@ -484,7 +488,7 @@ class File:
         self.to = root
         self.prefix = '#'
         self.access = ''
-        
+
         self.fields = {
             'to': self.__set_to,
             'out': self.__set_to,
@@ -519,12 +523,12 @@ class File:
         if not self.has_custom_dir:
             if not self.has_custom_name:
                 extension = '.ix'
-        
+
         # If we have a custom directory
         # we write to that directory, with whatever the current
         # name is.
         return self.to + '/' + self.name + extension
-    
+
 
 
     def load_field(self, field):
@@ -547,7 +551,7 @@ class File:
     def __set_to(self, data):
         '''
         Update the directory that the processed file should be saved
-        to once done, making sure to create said directory if it 
+        to once done, making sure to create said directory if it
         doesn't exist already and to expand any environment variables
         or 'ix' variables within it.
 
@@ -563,7 +567,7 @@ class File:
         # If the given directory does not exist
         # we want to create it.
         if not os.path.isdir(expanded):
-            info('{} does not exist, creating it for the following file: {}'.format(expanded, self.name))
+            info('{} does not exist, creating it for the following file: {}'.format(expanded, self.name), True)
             os.makedirs(expanded)
 
         self.has_custom_dir = True
@@ -634,7 +638,7 @@ class File:
 
         if unmatched:
             variables = '\n\t'.join(unmatched)
-            warn(f'Could not find\n\t{ variables }\n in { self.original_path }\n')
+            warn(f'Could not find\n\t{ variables }\n in { self.original_path }\n', True)
 
         return contents
 
@@ -642,7 +646,7 @@ class File:
 
     def to_dict(self):
         '''
-        Put everything about this file that we want to store in 
+        Put everything about this file that we want to store in
         the lock file within a dictionary
 
         Parameters:
@@ -663,7 +667,7 @@ class File:
         eat up all the RAM.
 
         The hash is later used to create unique identifiers for different purposes.
-        One of which is to store the hash in the lock file and later compare when 
+        One of which is to store the hash in the lock file and later compare when
         checking whether or not a file should be parsed again.
 
         The hashing is done in md5 since it's fast and we really don't have to
@@ -689,7 +693,7 @@ class File:
 
         digest = md5.hexdigest()
         self.hash = digest
-        
+
         return digest
 
 
@@ -716,18 +720,22 @@ class File:
 #  |  _| |_| | | | | (__| |_| | (_) | | | \__ \
 #  |_|  \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 # -------------------------------------------------------------------------
-def info(message):      print(CYAN + 'ℹ' + WHITE, message, RESET)
-def error(message):     print(RED + '✖', message, RESET)
-def warn(message):      print(YELLOW + '⚠' + WHITE, message, RESET)
-def success(message):   print(GREEN + '✔' + WHITE, message, RESET)
-def log(message):       print(MAGENTA + '~' + WHITE, message, RESET)
+def out(message, forced = False):
+    if forced or verbose:
+        print(message)
+
+def info(message, f = False):      out(CYAN + 'ℹ ' + WHITE + message + RESET, f)
+def error(message, f = False):     out(RED + '✖ ' + message + RESET, f)
+def warn(message, f = False):      out(YELLOW + '⚠ ' + WHITE + message + RESET, f)
+def success(message, f = False):   out(GREEN + '✔ ' + WHITE + message + RESET, f)
+def log(message, f = False):       out(MAGENTA + '~ ' + WHITE + message + RESET, f)
 
 
 
 def get_file_lines(file_path):
     '''
     Try and open a file as a normal text file.
-    If succeeded, return an array of all the lines 
+    If succeeded, return an array of all the lines
     inside that file.
     '''
     try:
@@ -847,8 +855,8 @@ def main():
 
     # Logging
     if saved > 0:
-        success('Saved {} files'.format(saved))
-    
+        success('Saved {} files'.format(saved), True)
+
     if unchanged > 0:
         log('Skipped {} files because they were unchanged'.format(unchanged))
 
@@ -883,8 +891,12 @@ parser.add_argument('-c', '--config', help='The path where the .ix configuration
 parser.add_argument('-d', '--directory', help='The directory to parse. Default $HOME/dots')
 parser.add_argument('-f', '--field', help='Get a specific field value from the config')
 parser.add_argument('--full', help='Skip looking at the cache and parse everything', action='store_false')
+parser.add_argument('-v', '--verbose', help='Output extra information about what is happening', action='store_true')
 
 args = parser.parse_args()
+
+if args.verbose:
+    verbose = True;
 
 if args.config:
     config_path = args.config
@@ -893,7 +905,7 @@ if args.field:
     config = read_config(config_path)
     contents = Parser.get_main_key_value(args.field)
     print(contents)
-    
+
     # The whole thing doesn't need to run
     # if only one field is needed
     exit()
