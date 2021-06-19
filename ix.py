@@ -77,17 +77,35 @@ class Parser:
         stripped = key.strip()
         value = None
 
-        # Check for helpers
-        if len(stripped.split(' ', 1)) > 1:
-            helper, parameters = stripped.split(' ', 1)
-            parameters = [ param.strip() for param in parameters.split(';') ]
-            parameters = [ Parser.get_config_key(param) or param for param in parameters ]
-            value = Helpers.call(helper, parameters)
-
-        else:
+        if len(stripped.split(' ', 1)) == 1:
             value = Parser.get_config_key(key)
             if not value: return None
 
+            return os.path.expandvars(value)
+
+        # Check for helpers
+        helper, parameters = stripped.split(' ', 1)
+        parameters = [ param.strip() for param in parameters.split(';') ]
+        
+        # First argument doesn't have a name
+        main = parameters.pop(0)
+        main = Parser.get_config_key(main) or main
+
+        modifier_keys = list()
+        modifier_values = list()
+
+        for param in parameters:
+            name, value = param.split(':')
+
+            name = name.strip()
+            value = value.strip()
+
+            modifier_keys.append(name)
+            modifier_values.append(Parser.get_config_key(value) or value)
+
+        modifiers = dict(zip(modifier_keys, modifier_values))
+        value = Helpers.call(helper, main, modifiers)
+            
         return os.path.expandvars(value)
 
 
@@ -309,22 +327,27 @@ class Helpers:
     including variables and/or templating
 
     Helpers can only be used within main variables, aka. '${{ thing.thing }}'
+
+    Parameters:
+        helper (str): The name of the helper function to run
+        value (str/int): The value to perform the function on
+        modifiers (dict): Extra parameters passed to the helper to further tweak the value
     '''
     @staticmethod
-    def call(what, parameters):
+    def call(helper, value, modifiers):
         '''
         Call a specific helper, if defined
         '''
         try:
-            method = getattr(Helpers, what)
-            return method(*parameters)
+            method = getattr(Helpers, helper)
+            return method(value, **modifiers)
         except Exception as e:
-            error(f'{e!r} ---- helper: {what}')
+            error(f'{e!r} ---- helper: {helper}')
             return ''
 
 
     @staticmethod
-    def rgb(value, opacity = None):
+    def rgb(value, alpha = None):
         '''
         Take a hex string ( #181b21 ) and convert it to 'rgb'.
         If an rgb or rgba string is provided, if the opacity isn't
@@ -337,14 +360,14 @@ class Helpers:
         # We got an rgb value
         if not value.startswith('#'):
             # Give it back as it is if no overrides are specified
-            if not opacity: return value
+            if not alpha: return value
 
             values = [ x.strip() for x in value.split('(', 1).pop().rstrip(')').split(',') ]
 
             r = values[0]
             g = values[1]
             b = values[2]
-            a = opacity
+            a = alpha
 
             return f'rgba({r}, {g}, {b}, {a})'
 
@@ -356,8 +379,8 @@ class Helpers:
         if len(string) == 8:
             a = round(int(string[6:6+2], 16) / 255, 2)
 
-        if opacity:
-            a = opacity
+        if alpha:
+            a = alpha
 
         if a != '': tag = f'rgba({r}, {g}, {b}, {a})'
         else:       tag = f'rgb({r}, {g}, {b})'
@@ -366,7 +389,7 @@ class Helpers:
 
 
     @staticmethod
-    def hex(value, opacity = None):
+    def hex(value, alpha = None):
         '''
         Take an rgb/rgba string and convert it to a hex representation
         of the same color. If a hex string is provided, it'll return the exact
@@ -375,27 +398,26 @@ class Helpers:
 
         Optionally pass in opacity to override or add the alpha channel.
         '''
-        if opacity:
-            opacity = hex(round(float(opacity) * 255))[2:]
-
+        if alpha:
+            alpha = hex(round(float(alpha) * 255))[2:]
+            
         # We got a hex string
         if value.startswith('#'):
             # Give it back as it is if no overrides are specified
-            if not opacity: return value
+            if not alpha: return value
 
             value = value[0:7]
-            return f'{value}{opacity}'
-
-        alpha = value.startswith('rgba')
+            return f'{value}{alpha}'
+            
+        a = value.startswith('rgba')
         value = value.split('(', 1).pop().rstrip(')').split(',')
 
         r = hex(int(value[0]))[2:]
         g = hex(int(value[1]))[2:]
         b = hex(int(value[2]))[2:]
-        a = hex(round(float(value[3]) * 255))[2:] if alpha else ''
+        a = hex(round(float(value[3]) * 255))[2:] if a else ''
 
-        if opacity:
-            a = opacity
+        if alpha: a = alpha
 
         return f'#{r}{g}{b}{a}'
 

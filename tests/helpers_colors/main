@@ -10,10 +10,10 @@ just rgb
 #{{ rgb rgb(123, 123, 123) }}
 
 just rgb override opacity
-#{{ rgb rgb(123, 123, 123); 0.3 }}
+#{{ rgb rgb(123, 123, 123); alpha: 0.3 }}
 
 rgb with custom opacity from user
-#{{ rgb #181b21; 0.5 }}
+#{{ rgb #181b21; alpha: 0.5 }}
 
 rgb with custom opacity from hex
 #{{ rgb #181b2177 }}
@@ -22,13 +22,13 @@ rgb from hex variable
 #{{ rgb [ colors.black ] }}
 
 rgb from hex variable with opacity
-#{{ rgb [ colors.black ]; 0.5 }}
+#{{ rgb [ colors.black ]; alpha: 0.5 }}
 
 rgb from hex alpha variable
 #{{ rgb [ colors.black-transparent ] }}
 
 rgb hex alpha variable override
-#{{ rgb [ colors.black-transparent ]; 0.8 }}
+#{{ rgb [ colors.black-transparent ]; alpha: 0.8 }}
 
 
 
@@ -42,10 +42,10 @@ just hex
 #{{ hex #7289da }}
 
 just hex override opacity
-#{{ hex #7289da; 0.3 }}
+#{{ hex #7289da; alpha: 0.3 }}
 
 hex with custom opacity from user
-#{{ hex rgb(255, 255, 255); 0.9 }}
+#{{ hex rgb(255, 255, 255); alpha: 0.9 }}
 
 hex with custom opacity from rgba
 #{{ hex rgba(255, 255, 255, 0.3) }}
@@ -54,10 +54,10 @@ hex from rgb variable
 #{{ hex [ colors.white ] }}
 
 hex from rgb variable with opacity
-#{{ hex [ colors.white ]; 0.5 }}
+#{{ hex [ colors.white ]; alpha: 0.5 }}
 
 hex from rgba variable
 #{{ hex [ colors.white-transparent ] }}
 
 hex rgba variable override
-#{{ hex [ colors.white-transparent ]; 0.4 }}
+#{{ hex [ colors.white-transparent ]; alpha: 0.4 }}
