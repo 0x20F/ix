@@ -17,8 +17,8 @@
 - variables to be processed are defined as follows `#{{ section.variable }}`.
 - default config directory `~/.config/ix/ixrc` (overwrite with `-c`)
 - default parse directory `~/dots` (overwrite with `-d`)
-- full docs [here](https://github.com/0x20F/ix/wiki)
 
+## Full docs [here](https://github.com/0x20F/ix/wiki)
 
 <br><br>
 
