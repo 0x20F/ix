@@ -821,6 +821,32 @@ def save_lock_file(path, data):
 
 
 
+def cleanup():
+    '''
+    Attempt to remove all the files that were previously
+    processed and stored in the cache, making sure to 
+    clear the cache when done so we're starting fresh.
+    '''
+    lock = read_lock_file(lock_path)
+
+    info('Purging all previous builds before...', True)
+
+    if lock == {}:
+        log('Found no items in cache, exiting...', True)
+
+    for _, entry in lock.items():
+        file = entry['output']
+
+        try:
+            os.remove(file)
+        except Exception as e:
+            error(f"Couldn't remove: {file} - {e!r}")
+
+    save_lock_file(lock_path, {})
+    success('Done', True)
+
+
+
 def main():
     '''
     The main entrypoint for the program.
@@ -899,6 +925,7 @@ parser.add_argument('-c', '--config', help='The path where the .ix configuration
 parser.add_argument('-d', '--directory', help='The directory to parse. Default $HOME/dots')
 parser.add_argument('-f', '--field', help='Get a specific field value from the config')
 parser.add_argument('--full', help='Skip looking at the cache and parse everything', action='store_false')
+parser.add_argument('--reverse', help='Remove all the parsed files (everything defined in the cache)', action='store_true')
 parser.add_argument('-v', '--verbose', help='Output extra information about what is happening', action='store_true')
 
 args = parser.parse_args()
@@ -940,6 +967,10 @@ if __name__ == '__main__':
         os.system('color')
 
     if not args.full:
-        info('Skipping cache, doing a full parse...')
+        info('Skipping cache, doing a full parse...', True)
+        cleanup()
+    
+    if args.reverse:
+        cleanup()
 
     main()
