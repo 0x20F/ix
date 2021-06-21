@@ -1,5 +1,6 @@
 import os, configparser, argparse
 import re, threading, json, hashlib
+import pathlib
 from datetime import datetime
 
 
@@ -918,7 +919,7 @@ if args.field:
     exit()
 
 if args.directory:
-    root_path = args.directory
+    root_path = pathlib.Path(args.directory).absolute()
 
 # Load in the cache if not specified
 # otherwise.
