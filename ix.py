@@ -829,7 +829,7 @@ def cleanup():
     '''
     lock = read_lock_file(lock_path)
 
-    info('Purging all previous builds before...', True)
+    info('Purging all previous builds...', True)
 
     if lock == {}:
         log('Found no items in cache, exiting...', True)
@@ -839,6 +839,7 @@ def cleanup():
 
         try:
             os.remove(file)
+            log(f'\tRemoved: {file}')
         except Exception as e:
             error(f"Couldn't remove: {file} - {e!r}")
 
