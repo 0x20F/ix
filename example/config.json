@@ -1,5 +1,5 @@
 {
-    "root": ".",
+    "root": "$HOME/dots",
     "vars_file": ".config/ix/ixrc",
     "parse": [
         {

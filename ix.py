@@ -957,7 +957,6 @@ parser.add_argument('--reverse', help='Remove all the parsed files (everything d
 parser.add_argument('-v', '--verbose', help='Output extra information about what is happening', action='store_true')
 
 args = parser.parse_args()
-
 json_rules = None
 
 if args.rules:
@@ -968,7 +967,10 @@ if args.verbose:
     verbose = True;
 
 if args.config:
-    config_path = args.config
+    if args.rules:
+        config_path = json_rules['vars_file']
+    else:
+        config_path = args.config
 
 if args.field:
     config = read_config(config_path)
@@ -980,7 +982,10 @@ if args.field:
     exit()
 
 if args.directory:
-    root_path = pathlib.Path(args.directory).absolute()
+    if args.rules:
+        root_path = pathlib.Path(os.path.expandvars(json_rules['root'])).absolute()
+    else:
+        root_path = pathlib.Path(os.path.expandvars(args.directory)).absolute()
 
 # Load in the cache if not specified
 # otherwise.
