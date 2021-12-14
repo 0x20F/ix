@@ -248,7 +248,8 @@ class Parser:
                     clean = line.replace(start, '').strip()
 
                     if clean.startswith(tuple(current.fields)):
-                        current.load_field(clean)
+                        field, data = clean.split(':', 1)
+                        current.load_field((field, data))
                         continue
 
             if idx == 20 and not found:
@@ -308,7 +309,6 @@ class Parser:
         try:
             with open(file.get_output_path(), 'w') as f:
                 f.write(processed)
-                f.close()
 
             if file.has_custom_access:
                 os.chmod(file.get_output_path(), file.access)
@@ -319,6 +319,19 @@ class Parser:
             return
 
         success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()), True)
+
+
+    @staticmethod
+    def process_file_from_rules(file):
+        '''
+        Process a file based on the given rules.
+
+        Parameters:
+            rules (list): The rules to use for processing the file
+        '''
+        for rule in rules:
+            if rule.file_path == file.original_path:
+                Parser.process_file(file)
 
 
 
@@ -494,7 +507,7 @@ class File:
 
         # Config fields
         self.to = root
-        self.prefix = '#'
+        self.prefix = notation
         self.access = ''
 
         self.fields = {
@@ -539,7 +552,7 @@ class File:
 
 
 
-    def load_field(self, field):
+    def load_field(self, field_tuple):
         '''
         Parse a given 'ix' configuration field. Usually comes in the following
         format `out: /path/to/whatever`. Find out what item this configuration
@@ -549,10 +562,14 @@ class File:
             self (File): The current file object
             field (str): The field line directly from a file, with the comment stripped
         '''
-        field, data = field.split(':', 1)
+        field, data = field_tuple
 
-        parse = self.fields.get(field, lambda: 'No such field: ' + field)
-        parse(data.strip())
+        parse = self.fields.get(field, lambda x: 'No such field: ' + field)
+
+        if isinstance(data, str):
+            parse(data.strip())
+        else:
+            parse(data)
 
 
 
@@ -848,17 +865,47 @@ def cleanup():
 
 
 
-def main():
+def main(args):
     '''
     The main entrypoint for the program.
     Initializes everything that needs to happen.
     From finding all the 'ix' files to creating new Threads for
     parsing each of the available files, as well as saving and updating
     the lock file once everything has been processed.
+
+    Args:
+        args (dict): The arguments passed to the program
     '''
     threads = list()
 
-    files = Parser.find_ix(root_path)
+    if args.rules:
+        with open(args.rules) as file:
+            j = json.load(file)
+
+        files = list()
+        
+        for f in j['parse']:
+            root, name = f['file'].rsplit('/', 1)
+
+            if not os.path.isfile(f['file']):
+                print('Could not find file: ' + f['file'])
+                continue
+
+            file = File(root, name)
+
+            for field in f.items():
+                print('Loading field')
+                print(field)
+                file.load_field(field)
+
+            files.append(file)
+
+        print(files)
+    else:
+        files = Parser.find_ix(root_path)
+
+    exit()
+
     unchanged = 0
     saved = 0
 
@@ -923,6 +970,7 @@ config = None
 # Commandline arguments
 parser = argparse.ArgumentParser(description='Find and replace variables in files within a given directory')
 parser.add_argument('-c', '--config', help='The path where the .ix configuration is located. Default $HOME/.config/ix/ixrc')
+parser.add_argument('-r', '--rules', help='File that contains a list of all files to be parsed and included. Used instead of the #ix-config header in each individual file')
 parser.add_argument('-d', '--directory', help='The directory to parse. Default $HOME/dots')
 parser.add_argument('-f', '--field', help='Get a specific field value from the config')
 parser.add_argument('--full', help='Skip looking at the cache and parse everything', action='store_false')
@@ -974,4 +1022,4 @@ if __name__ == '__main__':
     if args.reverse:
         cleanup()
 
-    main()
+    main(args)
