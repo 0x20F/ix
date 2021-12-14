@@ -1,0 +1,21 @@
+{
+    "root": ".",
+    "vars_file": ".config/ix/ixrc",
+    "parse": [
+        {
+            "file": ".config/bspwm/bspwmrc",
+            "out": "$HOME/.config/bspwm",
+            "prefix": "$",
+            "access": 777
+        },
+        {
+            "file": ".config/alacritty/alacritty.yml",
+            "out": "$HOME/.config/alacritty"
+        },
+        {
+            "name": "lmao.txt",
+            "file": "./random.txt",
+            "out": "$HOME/lmao"
+        }
+    ]
+}
