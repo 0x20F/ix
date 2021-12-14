@@ -329,9 +329,22 @@ class Parser:
         Parameters:
             rules (list): The rules to use for processing the file
         '''
-        for rule in rules:
-            if rule.file_path == file.original_path:
-                Parser.process_file(file)
+        print("Processing file from rules")
+        processed = file.parse()
+
+        try:
+            with open(file.get_output_path(), 'w') as f:
+                f.write(processed)
+            
+            if file.has_custom_access:
+                os.chmod(file.get_output_path(), file.access)
+
+            lock_file[file.original_path] = file.to_dict()
+        except FileNotFoundError:
+            error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path), True)
+            return
+
+        success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()), True)
 
 
 
@@ -494,11 +507,12 @@ class File:
     file that needs parsing. Such as the comment type,
     the paths, the ix-configuration, and so on.
     '''
-    def __init__(self, root, name, notation = '#') -> None:
+    def __init__(self, root, name, notation = '#', rules = None) -> None:
         self.original_path = root + '/' + name
         self.name = name
         self.notation = notation
         self.hash = ''
+        self.rules = rules
 
         # Flags
         self.has_custom_dir = False
@@ -888,23 +902,17 @@ def main(args):
             root, name = f['file'].rsplit('/', 1)
 
             if not os.path.isfile(f['file']):
-                print('Could not find file: ' + f['file'])
+                error('Could not find file: ' + f['file'])
                 continue
 
-            file = File(root, name)
+            file = File(root, name, rules = f)
 
             for field in f.items():
-                print('Loading field')
-                print(field)
                 file.load_field(field)
 
             files.append(file)
-
-        print(files)
     else:
         files = Parser.find_ix(root_path)
-
-    exit()
 
     unchanged = 0
     saved = 0
@@ -926,7 +934,11 @@ def main(args):
                 unchanged += 1
                 continue
 
-        thread = threading.Thread(target=Parser.process_file, args=(file,))
+        if file.rules:
+            thread = threading.Thread(target=Parser.process_file_from_rules, args=(file,))
+        else:
+            thread = threading.Thread(target=Parser.process_file, args=(file,))
+
         threads.append(thread)
         thread.start()
 
