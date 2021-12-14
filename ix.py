@@ -248,7 +248,8 @@ class Parser:
                     clean = line.replace(start, '').strip()
 
                     if clean.startswith(tuple(current.fields)):
-                        current.load_field(clean)
+                        field, data = clean.split(':', 1)
+                        current.load_field((field, data))
                         continue
 
             if idx == 20 and not found:
@@ -299,16 +300,16 @@ class Parser:
         Parameters:
             file (File): The file object to parse
         '''
-        regex = re.compile('^{}.+[\\s\\S]$'.format(file.notation), re.MULTILINE)
         processed = file.parse()
 
-        for line in re.findall(regex, processed):
-            processed = processed.replace(line, '')
+        if not file.rules:
+            regex = re.compile('^{}.+[\\s\\S]$'.format(file.notation), re.MULTILINE)
+            for line in re.findall(regex, processed):
+                processed = processed.replace(line, '')
 
         try:
             with open(file.get_output_path(), 'w') as f:
                 f.write(processed)
-                f.close()
 
             if file.has_custom_access:
                 os.chmod(file.get_output_path(), file.access)
@@ -481,11 +482,12 @@ class File:
     file that needs parsing. Such as the comment type,
     the paths, the ix-configuration, and so on.
     '''
-    def __init__(self, root, name, notation = '#') -> None:
+    def __init__(self, root, name, notation = '#', rules = None) -> None:
         self.original_path = root + '/' + name
         self.name = name
         self.notation = notation
         self.hash = ''
+        self.rules = rules
 
         # Flags
         self.has_custom_dir = False
@@ -539,7 +541,7 @@ class File:
 
 
 
-    def load_field(self, field):
+    def load_field(self, field_tuple):
         '''
         Parse a given 'ix' configuration field. Usually comes in the following
         format `out: /path/to/whatever`. Find out what item this configuration
@@ -549,10 +551,14 @@ class File:
             self (File): The current file object
             field (str): The field line directly from a file, with the comment stripped
         '''
-        field, data = field.split(':', 1)
+        field, data = field_tuple
 
-        parse = self.fields.get(field, lambda: 'No such field: ' + field)
-        parse(data.strip())
+        parse = self.fields.get(field, lambda x: 'No such field: ' + field)
+
+        if isinstance(data, str):
+            parse(data.strip())
+        else:
+            parse(data)
 
 
 
@@ -714,9 +720,8 @@ class File:
         Parameters:
             self (File): The current file obejct
         '''
-        file = open(self.original_path)
-        contents = self.__unwrap_parse(Parser.expand_ix_vars(file.read(), self.prefix))
-        file.close()
+        with open(self.original_path, 'r') as f:
+            contents = self.__unwrap_parse(Parser.expand_ix_vars(f.read(), self.prefix))
 
         return contents
 
@@ -848,17 +853,38 @@ def cleanup():
 
 
 
-def main():
+def main(rules = None):
     '''
     The main entrypoint for the program.
     Initializes everything that needs to happen.
     From finding all the 'ix' files to creating new Threads for
     parsing each of the available files, as well as saving and updating
     the lock file once everything has been processed.
+
+    Args:
+        args (dict): The arguments passed to the program
     '''
     threads = list()
 
-    files = Parser.find_ix(root_path)
+    if rules:
+        files = list()
+        
+        for f in rules['parse']:
+            root, name = f['file'].rsplit('/', 1)
+
+            if not os.path.isfile(f['file']):
+                error('Could not find file: ' + f['file'])
+                continue
+
+            file = File(root, name, rules = f)
+
+            for field in f.items():
+                file.load_field(field)
+
+            files.append(file)
+    else:
+        files = Parser.find_ix(root_path)
+
     unchanged = 0
     saved = 0
 
@@ -923,6 +949,7 @@ config = None
 # Commandline arguments
 parser = argparse.ArgumentParser(description='Find and replace variables in files within a given directory')
 parser.add_argument('-c', '--config', help='The path where the .ix configuration is located. Default $HOME/.config/ix/ixrc')
+parser.add_argument('-r', '--rules', help='File that contains a list of all files to be parsed and included. Used instead of the #ix-config header in each individual file')
 parser.add_argument('-d', '--directory', help='The directory to parse. Default $HOME/dots')
 parser.add_argument('-f', '--field', help='Get a specific field value from the config')
 parser.add_argument('--full', help='Skip looking at the cache and parse everything', action='store_false')
@@ -930,12 +957,20 @@ parser.add_argument('--reverse', help='Remove all the parsed files (everything d
 parser.add_argument('-v', '--verbose', help='Output extra information about what is happening', action='store_true')
 
 args = parser.parse_args()
+json_rules = None
+
+if args.rules:
+    with open(args.rules) as file:
+        json_rules = json.load(file)
 
 if args.verbose:
     verbose = True;
 
 if args.config:
-    config_path = args.config
+    if args.rules:
+        config_path = json_rules['vars_file']
+    else:
+        config_path = args.config
 
 if args.field:
     config = read_config(config_path)
@@ -947,7 +982,10 @@ if args.field:
     exit()
 
 if args.directory:
-    root_path = pathlib.Path(args.directory).absolute()
+    if args.rules:
+        root_path = pathlib.Path(os.path.expandvars(json_rules['root'])).absolute()
+    else:
+        root_path = pathlib.Path(os.path.expandvars(args.directory)).absolute()
 
 # Load in the cache if not specified
 # otherwise.
@@ -974,4 +1012,4 @@ if __name__ == '__main__':
     if args.reverse:
         cleanup()
 
-    main()
+    main(rules = json_rules)
