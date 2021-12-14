@@ -300,42 +300,17 @@ class Parser:
         Parameters:
             file (File): The file object to parse
         '''
-        regex = re.compile('^{}.+[\\s\\S]$'.format(file.notation), re.MULTILINE)
         processed = file.parse()
 
-        for line in re.findall(regex, processed):
-            processed = processed.replace(line, '')
+        if not file.rules:
+            regex = re.compile('^{}.+[\\s\\S]$'.format(file.notation), re.MULTILINE)
+            for line in re.findall(regex, processed):
+                processed = processed.replace(line, '')
 
         try:
             with open(file.get_output_path(), 'w') as f:
                 f.write(processed)
 
-            if file.has_custom_access:
-                os.chmod(file.get_output_path(), file.access)
-
-            lock_file[file.original_path] = file.to_dict()
-        except FileNotFoundError:
-            error('Could not find output path: {}.\n\tUsed in file: {}'.format(file.get_output_path(), file.original_path), True)
-            return
-
-        success('Saved: {1}{2}{0} to {1}{3}'.format(WHITE, RESET, file.original_path, file.get_output_path()), True)
-
-
-    @staticmethod
-    def process_file_from_rules(file):
-        '''
-        Process a file based on the given rules.
-
-        Parameters:
-            rules (list): The rules to use for processing the file
-        '''
-        print("Processing file from rules")
-        processed = file.parse()
-
-        try:
-            with open(file.get_output_path(), 'w') as f:
-                f.write(processed)
-            
             if file.has_custom_access:
                 os.chmod(file.get_output_path(), file.access)
 
@@ -521,7 +496,7 @@ class File:
 
         # Config fields
         self.to = root
-        self.prefix = notation
+        self.prefix = '#'
         self.access = ''
 
         self.fields = {
@@ -745,9 +720,8 @@ class File:
         Parameters:
             self (File): The current file obejct
         '''
-        file = open(self.original_path)
-        contents = self.__unwrap_parse(Parser.expand_ix_vars(file.read(), self.prefix))
-        file.close()
+        with open(self.original_path, 'r') as f:
+            contents = self.__unwrap_parse(Parser.expand_ix_vars(f.read(), self.prefix))
 
         return contents
 
@@ -879,7 +853,7 @@ def cleanup():
 
 
 
-def main(args):
+def main(rules = None):
     '''
     The main entrypoint for the program.
     Initializes everything that needs to happen.
@@ -892,13 +866,10 @@ def main(args):
     '''
     threads = list()
 
-    if args.rules:
-        with open(args.rules) as file:
-            j = json.load(file)
-
+    if rules:
         files = list()
         
-        for f in j['parse']:
+        for f in rules['parse']:
             root, name = f['file'].rsplit('/', 1)
 
             if not os.path.isfile(f['file']):
@@ -934,11 +905,7 @@ def main(args):
                 unchanged += 1
                 continue
 
-        if file.rules:
-            thread = threading.Thread(target=Parser.process_file_from_rules, args=(file,))
-        else:
-            thread = threading.Thread(target=Parser.process_file, args=(file,))
-
+        thread = threading.Thread(target=Parser.process_file, args=(file,))
         threads.append(thread)
         thread.start()
 
@@ -1034,4 +1001,11 @@ if __name__ == '__main__':
     if args.reverse:
         cleanup()
 
-    main(args)
+        
+    if args.rules:
+        with open(args.rules) as file:
+            j = json.load(file)
+
+        main(rules = j)
+    else:
+        main()
