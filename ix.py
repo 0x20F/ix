@@ -958,6 +958,12 @@ parser.add_argument('-v', '--verbose', help='Output extra information about what
 
 args = parser.parse_args()
 
+json_rules = None
+
+if args.rules:
+    with open(args.rules) as file:
+        json_rules = json.load(file)
+
 if args.verbose:
     verbose = True;
 
@@ -1001,11 +1007,4 @@ if __name__ == '__main__':
     if args.reverse:
         cleanup()
 
-        
-    if args.rules:
-        with open(args.rules) as file:
-            j = json.load(file)
-
-        main(rules = j)
-    else:
-        main()
+    main(rules = json_rules)
